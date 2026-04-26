@@ -1,29 +1,34 @@
-import { app, BrowserWindow, shell } from 'electron'
-import * as path from 'path'
+import { app, BrowserWindow } from 'electron'
+import path from 'path'
 
 let mainWindow: BrowserWindow | null = null
 
-function createWindow () {
+function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 650,
-    minWidth: 600,
-    minHeight: 400,
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
     title: 'SSH Credential Hub',
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
-      contextIsolation: true
+      contextIsolation: true,
+      sandbox: false
     },
-    autoHideMenuBar: true
+    autoHideMenuBar: true,
+    show: false
   })
 
-  const isDev = process.env.NODE_ENV === 'development'
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show()
+  })
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:8080')
+  if (process.env.VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
   mainWindow.on('closed', () => {
