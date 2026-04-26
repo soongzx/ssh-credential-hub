@@ -10,32 +10,45 @@ Windows 环境下管理的 SSH 连接信息工具。使用 Electron + Vue 3 + SQ
 
 - **运行时**: Electron 28
 - **前端**: Vue 3 + TypeScript
+- **构建**: Vite + electron-builder
 - **存储**: SQLite (better-sqlite3)
-- **构建**: TypeScript + electron-builder
+- **加密**: AES-256-GCM
 - **包管理**: npm
 
 ## 项目结构
 
 ```
-src/
-├── main/                 # Electron 主进程
-│   ├── main.ts          # 入口
-│   ├── database/        # SQLite 操作
-│   ├── services/       # 业务服务
-│   └── ipc/            # 进程通信
-├── preload/             # 预加载脚本
-└── renderer/            # 前端界面
-    ├── views/          # 页面
-    ├── components/     # 组件
-    └── stores/         # 状态管理
+src-electron/           # Electron 主进程
+├── main.ts           # 入口
+├── preload.ts        # 预加载脚本
+├── database/        # SQLite 数据库层
+│   ├── index.ts
+│   ├── migrations/
+│   └── repositories/ # ConnectionRepository, GroupRepository, TagRepository, TerminalConfigRepository
+├── services/        # 业务服务
+│   └── cryptoService.ts
+└── ipc/            # 进程通信
+
+src-renderer/         # Vue 3 前端
+├── views/
+│   └── MainLayout.vue
+├── App.vue
+├── main.ts
+└── index.html
+
+src/shared/          # 共享类型
+├── types.ts
+└── constants.ts
+
+vite.config.ts        # Vite 配置
 ```
 
 ## 开发命令
 
 ```bash
 npm install           # 安装依赖
-npm run start         # 开发模式运行
-npm run build:electron    # 编译主进程
+npm run dev           # 开发模式运行（Vite dev server）
+npm run build         # 生产构建
 npm run build:exe     # 构建 Windows exe
 ```
 
@@ -46,22 +59,26 @@ npm run build:exe
 # 输出: release/SSH Credential Hub.exe
 ```
 
-## 开发阶段
-
-1. **第一阶段**：资源管理（SQLite、分组、标签、搜索）
-2. **第二阶段**：终端对接（Windows Terminal / Tabby）
-3. **第三阶段**：多终端适配（Xshell、SecureCRT、PuTTY）
-
 ## 数据模型
 
 - `connections` - 连接记录
 - `tags` - 标签
-- `groups` - 分组
+- `groups` - 分组（支持树形嵌套）
 - `connection_tags` - 连接-标签关联
 - `terminal_configs` - 终端配置
+
+## IPC 通信
+
+主进程和渲染进程通过 `src-electron/ipc/index.ts` 中的 handler 进行通信。
 
 ## 安全
 
 - 敏感字段使用 AES-256-GCM 加密
 - 密钥通过机器特征生成
 - 不在日志中输出敏感信息
+
+## 代码规范
+
+- ESLint + Prettier
+- 规范文档: `docs/coding-standards.md`
+- 架构决策: `docs/architecture-decisions.md`
