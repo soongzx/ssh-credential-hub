@@ -1,5 +1,9 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
+import { initDatabase } from './database'
+import { runMigrations } from './database/migrations'
+import { registerIpcHandlers } from './ipc'
+import { closeDatabase } from './database/index'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -37,6 +41,13 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // 初始化数据库
+  initDatabase()
+  // 执行迁移
+  runMigrations()
+  // 注册 IPC 处理器
+  registerIpcHandlers()
+
   createWindow()
 
   app.on('activate', () => {
@@ -50,4 +61,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('before-quit', () => {
+  closeDatabase()
 })
