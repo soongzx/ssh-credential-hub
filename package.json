@@ -1,0 +1,53 @@
+{
+  "name": "ssh-credential-hub",
+  "version": "0.1.0",
+  "description": "SSH Credential Hub - Windows SSH connection manager with SQLite storage",
+  "keywords": [
+    "ssh",
+    "credential",
+    "manager",
+    "windows"
+  ],
+  "author": "Soong",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run build:electron",
+    "build:exe": "npm run build && npx electron-builder --win",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "electron": "^28.0.0",
+    "electron-builder": "^26.8.1",
+    "typescript": "^4.9.5"
+  },
+  "build": {
+    "appId": "com.ssh-credential-hub",
+    "productName": "SSH Credential Hub",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
