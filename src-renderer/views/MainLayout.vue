@@ -25,6 +25,8 @@ import { h } from 'vue'
 import { useConnectionStore } from '../stores/useConnectionStore'
 import ConnectionList from '../components/connection/ConnectionList.vue'
 import ConnectionForm from '../components/connection/ConnectionForm.vue'
+import TagManager from '../components/tag/TagManager.vue'
+import GroupManager from '../components/group/GroupManager.vue'
 
 const connectionStore = useConnectionStore()
 
@@ -110,43 +112,43 @@ function handleFormClose(): void {
 
     <!-- 主内容区 -->
     <NLayoutContent style="padding: 24px">
-      <!-- 顶部工具栏 -->
-      <NSpace justify="space-between" style="margin-bottom: 16px">
-        <NInput
-          v-model:value="connectionStore.searchKeyword"
-          placeholder="搜索连接..."
-          clearable
-          style="width: 300px"
-          @update:value="handleSearch"
-        >
-          <template #prefix>
-            <NIcon :component="SearchOutline" />
-          </template>
-        </NInput>
+      <!-- 连接管理页面 -->
+      <template v-if="activeMenu === 'connections'">
+        <NSpace justify="space-between" style="margin-bottom: 16px">
+          <NInput
+            v-model:value="connectionStore.searchKeyword"
+            placeholder="搜索连接..."
+            clearable
+            style="width: 300px"
+            @update:value="handleSearch"
+          >
+            <template #prefix>
+              <NIcon :component="SearchOutline" />
+            </template>
+          </NInput>
 
-        <NButton type="primary" @click="handleAddConnection">
-          <template #icon>
-            <NIcon :component="AddOutline" />
-          </template>
-          新建连接
-        </NButton>
-      </NSpace>
+          <NButton type="primary" @click="handleAddConnection">
+            <template #icon>
+              <NIcon :component="AddOutline" />
+            </template>
+            新建连接
+          </NButton>
+        </NSpace>
 
-      <!-- 连接列表 -->
-      <ConnectionList
-        v-if="activeMenu === 'connections'"
-        :connections="connectionStore.filteredConnections"
-        :loading="connectionStore.loading"
-        @edit="handleEditConnection"
-      />
+        <ConnectionList
+          :connections="connectionStore.filteredConnections"
+          :loading="connectionStore.loading"
+          @edit="handleEditConnection"
+        />
+      </template>
 
-      <!-- 其他页面占位 -->
-      <div v-else-if="activeMenu === 'tags'" class="placeholder">
-        <NText depth="3">标签管理功能开发中...</NText>
-      </div>
-      <div v-else-if="activeMenu === 'groups'" class="placeholder">
-        <NText depth="3">分组管理功能开发中...</NText>
-      </div>
+      <!-- 标签管理页面 -->
+      <TagManager v-else-if="activeMenu === 'tags'" />
+
+      <!-- 分组管理页面 -->
+      <GroupManager v-else-if="activeMenu === 'groups'" />
+
+      <!-- 终端配置页面占位 -->
       <div v-else-if="activeMenu === 'terminals'" class="placeholder">
         <NText depth="3">终端配置功能开发中...</NText>
       </div>

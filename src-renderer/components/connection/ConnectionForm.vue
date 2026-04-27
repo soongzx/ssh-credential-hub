@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import {
   NModal,
   NForm,
@@ -10,12 +10,15 @@ import {
   NSpace,
   NButton,
   NRadioGroup,
-  NRadioButton
+  NRadioButton,
+  NTag,
+  NDivider
 } from 'naive-ui'
 import type { SelectOption } from 'naive-ui'
 import { useConnectionStore } from '../../stores/useConnectionStore'
+import { useTagStore } from '../../stores/useTagStore'
 import { AuthType } from '@shared/types'
-import type { Connection } from '@shared/types'
+import type { Connection, Tag } from '@shared/types'
 
 interface Props {
   show: boolean
@@ -30,6 +33,7 @@ const emit = defineEmits<{
 }>()
 
 const connectionStore = useConnectionStore()
+const tagStore = useTagStore()
 
 const isEdit = computed(() => !!props.connectionId)
 
@@ -43,6 +47,7 @@ const formData = ref<{
   privateKeyPath: string
   passphrase: string
   description: string
+  selectedTagIds: string[]
 }>({
   name: '',
   host: '',
@@ -52,8 +57,11 @@ const formData = ref<{
   password: '',
   privateKeyPath: '',
   passphrase: '',
-  description: ''
+  description: '',
+  selectedTagIds: []
 })
+
+const connectionTags = ref<Tag[]>([])
 
 const authTypeOptions: SelectOption[] = [
   { label: '密码', value: AuthType.PASSWORD },
@@ -64,10 +72,23 @@ const authTypeOptions: SelectOption[] = [
 const showPassword = computed(() => formData.value.authType === AuthType.PASSWORD)
 const showKey = computed(() => formData.value.authType === AuthType.PUBLIC_KEY)
 
+// 可用的标签选项
+const tagOptions = computed(() =>
+  tagStore.tags.map((tag) => ({
+    label: tag.name,
+    value: tag.id,
+    color: tag.color
+  }))
+)
+
+onMounted(() => {
+  tagStore.fetchTags()
+})
+
 // 编辑模式时加载数据
 watch(
   () => props.connectionId,
-  (id) => {
+  async (id) => {
     if (id) {
       const conn = connectionStore.getConnectionById(id)
       if (conn) {
@@ -80,8 +101,12 @@ watch(
           password: conn.password ?? '',
           privateKeyPath: conn.privateKeyPath ?? '',
           passphrase: conn.passphrase ?? '',
-          description: conn.description ?? ''
+          description: conn.description ?? '',
+          selectedTagIds: []
         }
+        // 加载关联的标签
+        connectionTags.value = await tagStore.fetchTagsByConnection(id)
+        formData.value.selectedTagIds = connectionTags.value.map((t) => t.id)
       }
     } else {
       resetForm()
@@ -100,8 +125,10 @@ function resetForm(): void {
     password: '',
     privateKeyPath: '',
     passphrase: '',
-    description: ''
+    description: '',
+    selectedTagIds: []
   }
+  connectionTags.value = []
 }
 
 function handleClose(): void {
@@ -123,17 +150,53 @@ async function handleSubmit(): Promise<void> {
     description: formData.value.description || undefined
   }
 
+  let connectionId: string
+
   if (isEdit.value && props.connectionId) {
     await connectionStore.updateConnection(props.connectionId, data)
+    connectionId = props.connectionId
   } else {
-    await connectionStore.addConnection(data)
+    const newConn = await connectionStore.addConnection(data)
+    connectionId = newConn.id
   }
+
+  // 更新标签关联
+  await syncTags(connectionId)
 
   handleClose()
 }
 
+async function syncTags(connectionId: string): Promise<void> {
+  const currentTagIds = connectionTags.value.map((t) => t.id)
+  const newTagIds = formData.value.selectedTagIds
+
+  // 移除不再关联的标签
+  for (const tagId of currentTagIds) {
+    if (!newTagIds.includes(tagId)) {
+      await tagStore.unassignTagFromConnection(connectionId, tagId)
+    }
+  }
+
+  // 添加新关联的标签
+  for (const tagId of newTagIds) {
+    if (!currentTagIds.includes(tagId)) {
+      await tagStore.assignTagToConnection(connectionId, tagId)
+    }
+  }
+}
+
 function handleCancel(): void {
   handleClose()
+}
+
+function getTagColor(tagId: string): string {
+  const tag = tagStore.tags.find((t) => t.id === tagId)
+  return tag?.color ?? '#1890ff'
+}
+
+function getTagName(tagId: string): string {
+  const tag = tagStore.tags.find((t) => t.id === tagId)
+  return tag?.name ?? tagId
 }
 </script>
 
@@ -142,7 +205,7 @@ function handleCancel(): void {
     :show="props.show"
     :title="isEdit ? '编辑连接' : '新建连接'"
     preset="card"
-    style="width: 500px"
+    style="width: 520px"
     :mask-closable="false"
     @update:show="emit('update:show', $event)"
   >
@@ -195,6 +258,28 @@ function handleCancel(): void {
           placeholder="私钥口令（可选）"
           show-password-on="mousedown"
         />
+      </NFormItem>
+
+      <NDivider />
+
+      <NFormItem label="标签">
+        <NSelect
+          v-model:value="formData.selectedTagIds"
+          :options="tagOptions"
+          placeholder="选择标签"
+          multiple
+          clearable
+          style="width: 100%"
+        >
+          <template #tag="{ option }">
+            <NTag
+              :color="{ color: option.color, textColor: '#fff' }"
+              size="small"
+            >
+              {{ option.label }}
+            </NTag>
+          </template>
+        </NSelect>
       </NFormItem>
 
       <NFormItem label="备注">

@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { NCard, NSpace, NTag, NButton, NEmpty, NSpin, NText, NIcon } from 'naive-ui'
+import { ref, onMounted, watch } from 'vue'
+import { NCard, NSpace, NTag, NButton, NEmpty, NSpin, NText, NIcon, NPopconfirm } from 'naive-ui'
 import { CreateOutline, TrashOutline, DesktopOutline } from '@vicons/ionicons5'
-import type { Connection } from '@shared/types'
+import type { Connection, Tag } from '@shared/types'
+import { useTagStore } from '../../stores/useTagStore'
+import { useConnectionStore } from '../../stores/useConnectionStore'
 
 interface Props {
   connections: Connection[]
@@ -17,6 +20,35 @@ const emit = defineEmits<{
   (e: 'delete', id: string): void
   (e: 'connect', id: string): void
 }>()
+
+const tagStore = useTagStore()
+const connectionStore = useConnectionStore()
+
+// 缓存每个连接的标签
+const connectionTagMap = ref<Record<string, Tag[]>>({})
+
+onMounted(async () => {
+  await tagStore.fetchTags()
+  // 预加载所有连接的标签
+  for (const conn of props.connections) {
+    const tags = await tagStore.fetchTagsByConnection(conn.id)
+    connectionTagMap.value[conn.id] = tags
+  }
+})
+
+// 监听连接变化，更新标签
+watch(
+  () => props.connections,
+  async (newConnections) => {
+    for (const conn of newConnections) {
+      if (!connectionTagMap.value[conn.id]) {
+        const tags = await tagStore.fetchTagsByConnection(conn.id)
+        connectionTagMap.value[conn.id] = tags
+      }
+    }
+  },
+  { deep: true }
+)
 
 function getAuthTypeLabel(authType: string): string {
   const map: Record<string, string> = {
@@ -34,6 +66,14 @@ function getAuthTypeColor(authType: string): string {
     agent: 'info'
   }
   return map[authType] ?? 'default'
+}
+
+function getConnectionTags(connectionId: string): Tag[] {
+  return connectionTagMap.value[connectionId] ?? []
+}
+
+async function handleDelete(id: string): Promise<void> {
+  await connectionStore.removeConnection(id)
 }
 </script>
 
@@ -74,17 +114,21 @@ function getAuthTypeColor(authType: string): string {
                 </template>
                 编辑
               </NButton>
-              <NButton
-                text
-                size="small"
-                type="error"
-                @click="emit('delete', conn.id)"
-              >
-                <template #icon>
-                  <NIcon :component="TrashOutline" />
+              <NPopconfirm @positive-click="handleDelete(conn.id)">
+                <template #trigger>
+                  <NButton
+                    text
+                    size="small"
+                    type="error"
+                  >
+                    <template #icon>
+                      <NIcon :component="TrashOutline" />
+                    </template>
+                    删除
+                  </NButton>
                 </template>
-                删除
-              </NButton>
+                确定删除此连接？
+              </NPopconfirm>
             </NSpace>
           </NSpace>
         </template>
@@ -104,6 +148,18 @@ function getAuthTypeColor(authType: string): string {
             <NText depth="3">认证:</NText>
             <NTag :type="getAuthTypeColor(conn.authType)" size="small">
               {{ getAuthTypeLabel(conn.authType) }}
+            </NTag>
+          </NSpace>
+
+          <NSpace v-if="getConnectionTags(conn.id).length > 0">
+            <NText depth="3">标签:</NText>
+            <NTag
+              v-for="tag in getConnectionTags(conn.id)"
+              :key="tag.id"
+              :color="{ color: tag.color, textColor: '#fff' }"
+              size="small"
+            >
+              {{ tag.name }}
             </NTag>
           </NSpace>
 
