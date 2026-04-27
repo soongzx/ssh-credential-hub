@@ -1,19 +1,183 @@
 <script setup lang="ts">
-import { NSpace, NLayout, NLayoutHeader, NLayoutContent, NText } from 'naive-ui'
+import { ref, onMounted } from 'vue'
+import {
+  NLayout,
+  NLayoutSider,
+  NLayoutContent,
+  NMenu,
+  NIcon,
+  NButton,
+  NSpace,
+  NInput,
+  NDivider,
+  NText
+} from 'naive-ui'
+import {
+  ServerOutline,
+  PricetagOutline,
+  FolderOutline,
+  SettingsOutline,
+  SearchOutline,
+  AddOutline
+} from '@vicons/ionicons5'
+import type { MenuOption } from 'naive-ui'
+import { h } from 'vue'
+import { useConnectionStore } from '../stores/useConnectionStore'
+import ConnectionList from '../components/connection/ConnectionList.vue'
+import ConnectionForm from '../components/connection/ConnectionForm.vue'
+
+const connectionStore = useConnectionStore()
+
+// 菜单选项
+const menuOptions: MenuOption[] = [
+  {
+    label: '连接管理',
+    key: 'connections',
+    icon: () => h(NIcon, null, { default: () => h(ServerOutline) })
+  },
+  {
+    label: '标签管理',
+    key: 'tags',
+    icon: () => h(NIcon, null, { default: () => h(PricetagOutline) })
+  },
+  {
+    label: '分组管理',
+    key: 'groups',
+    icon: () => h(NIcon, null, { default: () => h(FolderOutline) })
+  },
+  {
+    label: '终端配置',
+    key: 'terminals',
+    icon: () => h(NIcon, null, { default: () => h(SettingsOutline) })
+  }
+]
+
+const activeMenu = ref('connections')
+const showForm = ref(false)
+const editingConnection = ref<string | null>(null)
+
+onMounted(() => {
+  connectionStore.fetchConnections()
+})
+
+function handleMenuSelect(key: string): void {
+  activeMenu.value = key
+}
+
+function handleSearch(value: string): void {
+  connectionStore.searchConnections(value)
+}
+
+function handleAddConnection(): void {
+  editingConnection.value = null
+  showForm.value = true
+}
+
+function handleEditConnection(id: string): void {
+  editingConnection.value = id
+  showForm.value = true
+}
+
+function handleFormClose(): void {
+  showForm.value = false
+  editingConnection.value = null
+}
 </script>
 
 <template>
-  <NLayout style="height: 100vh">
-    <NLayoutHeader bordered style="height: 48px; padding: 0 24px">
-      <NSpace align="center" style="height: 100%">
-        <NText strong style="font-size: 16px">SSH Credential Hub</NText>
-      </NSpace>
-    </NLayoutHeader>
+  <NLayout has-sider style="height: 100vh">
+    <!-- 侧边栏 -->
+    <NLayoutSider
+      bordered
+      collapse-mode="width"
+      :collapsed-width="64"
+      :width="200"
+      :native-scrollbar="false"
+      style="max-height: 100vh"
+    >
+      <div class="sider-header">
+        <NText strong class="app-title">SSH Hub</NText>
+      </div>
+      <NDivider style="margin: 0" />
+      <NMenu
+        :value="activeMenu"
+        :collapsed-width="64"
+        :collapsed-icon-size="22"
+        :options="menuOptions"
+        @update:value="handleMenuSelect"
+      />
+    </NLayoutSider>
+
+    <!-- 主内容区 -->
     <NLayoutContent style="padding: 24px">
-      <NSpace vertical>
-        <NText>欢迎使用 SSH Credential Hub</NText>
-        <NText depth="3">项目脚手架初始化完成</NText>
+      <!-- 顶部工具栏 -->
+      <NSpace justify="space-between" style="margin-bottom: 16px">
+        <NInput
+          v-model:value="connectionStore.searchKeyword"
+          placeholder="搜索连接..."
+          clearable
+          style="width: 300px"
+          @update:value="handleSearch"
+        >
+          <template #prefix>
+            <NIcon :component="SearchOutline" />
+          </template>
+        </NInput>
+
+        <NButton type="primary" @click="handleAddConnection">
+          <template #icon>
+            <NIcon :component="AddOutline" />
+          </template>
+          新建连接
+        </NButton>
       </NSpace>
+
+      <!-- 连接列表 -->
+      <ConnectionList
+        v-if="activeMenu === 'connections'"
+        :connections="connectionStore.filteredConnections"
+        :loading="connectionStore.loading"
+        @edit="handleEditConnection"
+      />
+
+      <!-- 其他页面占位 -->
+      <div v-else-if="activeMenu === 'tags'" class="placeholder">
+        <NText depth="3">标签管理功能开发中...</NText>
+      </div>
+      <div v-else-if="activeMenu === 'groups'" class="placeholder">
+        <NText depth="3">分组管理功能开发中...</NText>
+      </div>
+      <div v-else-if="activeMenu === 'terminals'" class="placeholder">
+        <NText depth="3">终端配置功能开发中...</NText>
+      </div>
     </NLayoutContent>
+
+    <!-- 连接表单弹窗 -->
+    <ConnectionForm
+      v-model:show="showForm"
+      :connection-id="editingConnection"
+      @close="handleFormClose"
+    />
   </NLayout>
 </template>
+
+<style scoped>
+.sider-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+}
+
+.app-title {
+  font-size: 16px;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400px;
+}
+</style>
