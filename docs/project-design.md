@@ -20,10 +20,11 @@
 | 组件 | 技术选型 | 说明 |
 |------|----------|------|
 | 运行时 | Electron 28 | 跨平台桌面应用框架 |
-| 前端 | Vue 3 + TypeScript | 响应式 UI |
+| 前端 | Vue 3 + TypeScript + Vite | 响应式 UI |
+| 状态管理 | Pinia | Vue 3 官方推荐 |
 | 存储 | better-sqlite3 | 同步 SQLite，性能好 |
 | 构建 | electron-builder | Windows exe 打包 |
-| 加密 | crypto | Node.js 内置 AES 加密 |
+| 加密 | crypto | Node.js 内置 AES-256-GCM |
 
 ### 2.2 模块划分
 
@@ -31,17 +32,24 @@
 ┌─────────────────────────────────────────────────┐
 │                   Electron App                   │
 ├─────────────────────────────────────────────────┤
-│  Main Process                                    │
-│  ├── Database Service    # SQLite 操作          │
-│  ├── Crypto Service     # 密码加密/解密         │
-│  ├── SSH Launcher       # 终端启动             │
-│  └── IPC Handler        # 进程通信             │
+│  Main Process (src-electron/)                   │
+│  ├── database/          # SQLite 操作           │
+│  │   ├── migrations/   # 数据库迁移            │
+│  │   └── repositories/  # 数据访问层           │
+│  ├── services/         # 业务服务               │
+│  │   └── cryptoService.ts  # 加密服务          │
+│  ├── ipc/              # 进程通信              │
+│  ├── main.ts           # 应用入口              │
+│  └── preload.ts        # 预加载脚本            │
 ├─────────────────────────────────────────────────┤
-│  Renderer Process                               │
-│  ├── Connection List    # 连接列表             │
-│  ├── Connection Editor  # 连接编辑             │
-│  ├── Tag Manager        # 标签管理             │
-│  └── Group Manager      # 分组管理             │
+│  Renderer Process (src-renderer/)               │
+│  ├── api/             # IPC 调用层             │
+│  ├── components/       # UI 组件               │
+│  │   ├── connection/  # 连接管理               │
+│  │   ├── group/      # 分组管理               │
+│  │   └── tag/        # 标签管理               │
+│  ├── stores/          # Pinia 状态管理         │
+│  └── views/           # 页面视图               │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -156,17 +164,17 @@ xshell.exe -url ssh://user@host:port
 
 ## 5. 开发阶段
 
-### 第一阶段：资源管理（当前阶段）
+### 第一阶段：资源管理（进行中 ~80%）
 
 **目标**：完成连接信息的增删改查、分组、标签、搜索基本功能
 
 **交付物**：
-- [ ] SQLite 数据库初始化脚本
-- [ ] 连接 CRUD 接口
-- [ ] 标签管理接口
-- [ ] 分组管理接口
-- [ ] 前端列表页
-- [ ] 前端编辑弹窗
+- [x] SQLite 数据库初始化脚本
+- [x] 连接 CRUD 接口
+- [x] 标签管理接口
+- [x] 分组管理接口
+- [x] 前端列表页
+- [x] 前端编辑弹窗
 - [ ] 筛选与搜索
 
 **里程碑**：用户可以在本地管理 SSH 连接信息
@@ -230,7 +238,54 @@ xshell.exe -url ssh://user@host:port
 | 搜索响应 | < 100ms |
 | 内存占用 | < 200MB |
 
-## 8. 后续扩展方向
+## 8. 项目结构
+
+```
+ssh-credential-hub/
+├── src-electron/           # Electron 主进程
+│   ├── main.ts            # 应用入口
+│   ├── preload.ts         # 预加载脚本
+│   ├── database/          # SQLite 数据库层
+│   │   ├── index.ts      # 数据库初始化
+│   │   ├── migrations/    # 迁移脚本
+│   │   └── repositories/  # 数据访问层
+│   │       ├── connectionRepository.ts
+│   │       ├── groupRepository.ts
+│   │       ├── tagRepository.ts
+│   │       └── terminalConfigRepository.ts
+│   ├── services/          # 业务服务
+│   │   └── cryptoService.ts
+│   └── ipc/               # 进程通信
+│       └── index.ts
+├── src-renderer/          # Vue 3 前端
+│   ├── api/
+│   │   └── ipc.ts        # IPC 调用封装
+│   ├── components/
+│   │   ├── connection/
+│   │   │   ├── ConnectionList.vue
+│   │   │   └── ConnectionForm.vue
+│   │   ├── group/
+│   │   │   └── GroupManager.vue
+│   │   └── tag/
+│   │       └── TagManager.vue
+│   ├── stores/            # Pinia 状态管理
+│   │   ├── useConnectionStore.ts
+│   │   ├── useGroupStore.ts
+│   │   └── useTagStore.ts
+│   ├── views/
+│   │   └── MainLayout.vue
+│   ├── App.vue
+│   └── main.ts
+├── src/shared/            # 共享类型
+│   ├── types.ts
+│   └── constants.ts
+├── docs/                  # 项目文档
+├── package.json
+├── vite.config.ts
+└── electron-builder.yml
+```
+
+## 9. 后续扩展方向
 
 - 连接导入/导出（支持 Excel、CSV）
 - 连接超时提醒
