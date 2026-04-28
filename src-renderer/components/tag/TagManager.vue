@@ -12,7 +12,8 @@ import {
   NForm,
   NFormItem,
   NInput,
-  NColorPicker
+  NColorPicker,
+  NText
 } from 'naive-ui'
 import { AddOutline, CreateOutline, TrashOutline, PricetagOutline } from '@vicons/ionicons5'
 import { useTagStore } from '../../stores/useTagStore'
@@ -53,6 +54,9 @@ function handleClose(): void {
 }
 
 async function handleSubmit(): Promise<void> {
+  if (!formData.value.name.trim()) {
+    return
+  }
   if (editingTag.value) {
     await tagStore.updateTag(editingTag.value, formData.value)
   } else {
@@ -64,66 +68,79 @@ async function handleSubmit(): Promise<void> {
 
 <template>
   <div>
-    <NSpace justify="space-between" style="margin-bottom: 16px">
-      <NButton type="primary" @click="handleAdd">
-        <template #icon>
-          <NIcon :component="AddOutline" />
+    <!-- 空状态 -->
+    <div v-if="tagStore.tags.length === 0 && !tagStore.loading" class="empty-state">
+      <NEmpty description="暂无标签">
+        <template #extra>
+          <NButton type="primary" @click="handleAdd">
+            <template #icon>
+              <NIcon :component="AddOutline" />
+            </template>
+            新建标签
+          </NButton>
         </template>
-        新建标签
-      </NButton>
-    </NSpace>
+      </NEmpty>
+    </div>
 
-    <NSpin :show="tagStore.loading">
-      <NSpace v-if="tagStore.tags.length > 0" vertical>
-        <NCard
-          v-for="tag in tagStore.tags"
-          :key="tag.id"
-          size="small"
-          hoverable
-          class="tag-card"
-        >
-          <template #header>
-            <NSpace align="center" justify="space-between">
-              <NSpace align="center">
-                <NIcon size="18" :component="PricetagOutline" />
-                <NTag :color="{ color: tag.color, textColor: '#fff' }" size="large">
-                  {{ tag.name }}
-                </NTag>
-              </NSpace>
-              <NSpace>
-                <NButton text size="small" @click="handleEdit(tag)">
-                  <template #icon>
-                    <NIcon :component="CreateOutline" />
-                  </template>
-                  编辑
-                </NButton>
-                <NButton text size="small" type="error" @click="handleDelete(tag.id)">
-                  <template #icon>
-                    <NIcon :component="TrashOutline" />
-                  </template>
-                  删除
-                </NButton>
-              </NSpace>
+    <!-- 标签列表 -->
+    <div v-else class="tag-list">
+      <NCard
+        v-for="tag in tagStore.tags"
+        :key="tag.id"
+        size="small"
+        class="tag-card"
+        :body-style="{ padding: '16px' }"
+      >
+        <template #header>
+          <div class="card-header">
+            <div class="card-title">
+              <NTag
+                :color="{ color: tag.color, textColor: '#fff' }"
+                size="large"
+                style="border-radius: 9999px; font-size: 14px"
+              >
+                {{ tag.name }}
+              </NTag>
+            </div>
+            <NSpace>
+              <NButton
+                text
+                size="small"
+                style="color: rgba(38, 37, 30, 0.55); font-size: 13px"
+                @click="handleEdit(tag)"
+              >
+                编辑
+              </NButton>
+              <NButton
+                text
+                size="small"
+                style="color: #cf2d56; font-size: 13px"
+                @click="handleDelete(tag.id)"
+              >
+                删除
+              </NButton>
             </NSpace>
-          </template>
-        </NCard>
-      </NSpace>
-
-      <NEmpty v-else description="暂无标签" />
-    </NSpin>
+          </div>
+        </template>
+      </NCard>
+    </div>
 
     <!-- 标签表单弹窗 -->
     <NModal
       :show="showForm"
-      :title="editingTag ? '编辑标签' : '新建标签'"
       preset="card"
-      style="width: 400px"
+      :title="editingTag ? '编辑标签' : '新建标签'"
+      style="width: 400px; background: #f2f1ed; border-radius: 8px"
       :mask-closable="false"
       @update:show="showForm = $event"
     >
       <NForm label-placement="left" label-width="60px">
         <NFormItem label="名称" required>
-          <NInput v-model:value="formData.name" placeholder="标签名称" />
+          <NInput
+            v-model:value="formData.name"
+            placeholder="标签名称"
+            style="border-radius: 8px"
+          />
         </NFormItem>
 
         <NFormItem label="颜色">
@@ -133,8 +150,14 @@ async function handleSubmit(): Promise<void> {
 
       <template #footer>
         <NSpace justify="end">
-          <NButton @click="handleClose">取消</NButton>
-          <NButton type="primary" @click="handleSubmit">保存</NButton>
+          <NButton style="border-radius: 8px" @click="handleClose">取消</NButton>
+          <NButton
+            type="primary"
+            style="border-radius: 8px; background: #f54e00; border-color: #f54e00"
+            @click="handleSubmit"
+          >
+            保存
+          </NButton>
         </NSpace>
       </template>
     </NModal>
@@ -142,11 +165,42 @@ async function handleSubmit(): Promise<void> {
 </template>
 
 <style scoped>
-.tag-card {
-  margin-bottom: 8px;
+.tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.tag-card:last-child {
-  margin-bottom: 0;
+.tag-card {
+  background: #f2f1ed;
+  border: 1px solid rgba(38, 37, 30, 0.1);
+  border-radius: 8px;
+  transition: box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.tag-card:hover {
+  border-color: rgba(38, 37, 30, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  background: #f2f1ed;
+  border: 1px solid rgba(38, 37, 30, 0.1);
+  border-radius: 8px;
 }
 </style>

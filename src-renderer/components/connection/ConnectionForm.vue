@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import {
-  NModal,
+  NCard,
   NForm,
   NFormItem,
   NInput,
@@ -12,28 +12,31 @@ import {
   NRadioGroup,
   NRadioButton,
   NTag,
-  NDivider
+  NDivider,
+  NText,
+  NIcon,
+  useMessage
 } from 'naive-ui'
 import type { SelectOption } from 'naive-ui'
+import { ArrowBackOutline } from '@vicons/ionicons5'
 import { useConnectionStore } from '../../stores/useConnectionStore'
 import { useTagStore } from '../../stores/useTagStore'
 import { AuthType } from '@shared/types'
-import type { Connection, Tag } from '@shared/types'
+import type { Tag } from '@shared/types'
 
 interface Props {
-  show: boolean
   connectionId?: string | null
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'update:show', value: boolean): void
-  (e: 'close'): void
+  (e: 'back'): void
 }>()
 
 const connectionStore = useConnectionStore()
 const tagStore = useTagStore()
+const message = useMessage()
 
 const isEdit = computed(() => !!props.connectionId)
 
@@ -72,7 +75,6 @@ const authTypeOptions: SelectOption[] = [
 const showPassword = computed(() => formData.value.authType === AuthType.PASSWORD)
 const showKey = computed(() => formData.value.authType === AuthType.PUBLIC_KEY)
 
-// 可用的标签选项
 const tagOptions = computed(() =>
   tagStore.tags.map((tag) => ({
     label: tag.name,
@@ -81,39 +83,31 @@ const tagOptions = computed(() =>
   }))
 )
 
-onMounted(() => {
-  tagStore.fetchTags()
-})
+async function loadData(): Promise<void> {
+  await tagStore.fetchTags()
 
-// 编辑模式时加载数据
-watch(
-  () => props.connectionId,
-  async (id) => {
-    if (id) {
-      const conn = connectionStore.getConnectionById(id)
-      if (conn) {
-        formData.value = {
-          name: conn.name,
-          host: conn.host,
-          port: conn.port,
-          username: conn.username,
-          authType: conn.authType,
-          password: conn.password ?? '',
-          privateKeyPath: conn.privateKeyPath ?? '',
-          passphrase: conn.passphrase ?? '',
-          description: conn.description ?? '',
-          selectedTagIds: []
-        }
-        // 加载关联的标签
-        connectionTags.value = await tagStore.fetchTagsByConnection(id)
-        formData.value.selectedTagIds = connectionTags.value.map((t) => t.id)
+  if (props.connectionId) {
+    const conn = connectionStore.getConnectionById(props.connectionId)
+    if (conn) {
+      formData.value = {
+        name: conn.name,
+        host: conn.host,
+        port: conn.port,
+        username: conn.username,
+        authType: conn.authType,
+        password: conn.password ?? '',
+        privateKeyPath: conn.privateKeyPath ?? '',
+        passphrase: conn.passphrase ?? '',
+        description: conn.description ?? '',
+        selectedTagIds: []
       }
-    } else {
-      resetForm()
+      connectionTags.value = await tagStore.fetchTagsByConnection(props.connectionId)
+      formData.value.selectedTagIds = connectionTags.value.map((t) => t.id)
     }
-  },
-  { immediate: true }
-)
+  }
+}
+
+loadData()
 
 function resetForm(): void {
   formData.value = {
@@ -131,13 +125,20 @@ function resetForm(): void {
   connectionTags.value = []
 }
 
-function handleClose(): void {
-  emit('update:show', false)
-  emit('close')
-  resetForm()
-}
-
 async function handleSubmit(): Promise<void> {
+  if (!formData.value.name.trim()) {
+    message.warning('请输入连接名称')
+    return
+  }
+  if (!formData.value.host.trim()) {
+    message.warning('请输入主机地址')
+    return
+  }
+  if (!formData.value.username.trim()) {
+    message.warning('请输入用户名')
+    return
+  }
+
   const data = {
     name: formData.value.name,
     host: formData.value.host,
@@ -155,29 +156,28 @@ async function handleSubmit(): Promise<void> {
   if (isEdit.value && props.connectionId) {
     await connectionStore.updateConnection(props.connectionId, data)
     connectionId = props.connectionId
+    message.success('连接已更新')
   } else {
     const newConn = await connectionStore.addConnection(data)
     connectionId = newConn.id
+    message.success('连接已创建')
   }
 
-  // 更新标签关联
   await syncTags(connectionId)
 
-  handleClose()
+  emit('back')
 }
 
 async function syncTags(connectionId: string): Promise<void> {
   const currentTagIds = connectionTags.value.map((t) => t.id)
   const newTagIds = formData.value.selectedTagIds
 
-  // 移除不再关联的标签
   for (const tagId of currentTagIds) {
     if (!newTagIds.includes(tagId)) {
       await tagStore.unassignTagFromConnection(connectionId, tagId)
     }
   }
 
-  // 添加新关联的标签
   for (const tagId of newTagIds) {
     if (!currentTagIds.includes(tagId)) {
       await tagStore.assignTagToConnection(connectionId, tagId)
@@ -185,118 +185,140 @@ async function syncTags(connectionId: string): Promise<void> {
   }
 }
 
-function handleCancel(): void {
-  handleClose()
-}
-
-function getTagColor(tagId: string): string {
-  const tag = tagStore.tags.find((t) => t.id === tagId)
-  return tag?.color ?? '#1890ff'
-}
-
-function getTagName(tagId: string): string {
-  const tag = tagStore.tags.find((t) => t.id === tagId)
-  return tag?.name ?? tagId
+function handleBack(): void {
+  emit('back')
 }
 </script>
 
 <template>
-  <NModal
-    :show="props.show"
-    :title="isEdit ? '编辑连接' : '新建连接'"
-    preset="card"
-    style="width: 520px"
-    :mask-closable="false"
-    @update:show="emit('update:show', $event)"
-  >
-    <NForm label-placement="left" label-width="80px">
-      <NFormItem label="名称" required>
-        <NInput v-model:value="formData.name" placeholder="连接名称" />
-      </NFormItem>
+  <div class="connection-form-page">
+    <div class="page-header">
+      <div class="header-back" @click="handleBack">
+        <NButton quaternary style="padding: 8px">
+          <template #icon>
+            <NIcon :component="ArrowBackOutline" />
+          </template>
+          返回
+        </NButton>
+      </div>
+      <NText strong style="font-size: 16px">
+        {{ isEdit ? '编辑连接' : '新建连接' }}
+      </NText>
+    </div>
 
-      <NFormItem label="主机" required>
-        <NInput v-model:value="formData.host" placeholder="IP 或域名" />
-      </NFormItem>
+    <NCard
+      :bordered="false"
+      style="background: #f2f1ed; border-radius: 8px; margin-top: 16px"
+    >
+      <NForm label-placement="left" label-width="100px">
+        <NFormItem label="名称" required>
+          <NInput v-model:value="formData.name" placeholder="连接名称" />
+        </NFormItem>
 
-      <NFormItem label="端口">
-        <NInputNumber v-model:value="formData.port" :min="1" :max="65535" style="width: 100%" />
-      </NFormItem>
+        <NFormItem label="主机" required>
+          <NInput v-model:value="formData.host" placeholder="IP 或域名" />
+        </NFormItem>
 
-      <NFormItem label="用户名" required>
-        <NInput v-model:value="formData.username" placeholder="SSH 用户名" />
-      </NFormItem>
+        <NFormItem label="端口">
+          <NInputNumber v-model:value="formData.port" :min="1" :max="65535" style="width: 100%" />
+        </NFormItem>
 
-      <NFormItem label="认证方式">
-        <NRadioGroup v-model:value="formData.authType">
-          <NRadioButton
-            v-for="option in authTypeOptions"
-            :key="option.value"
-            :value="option.value"
-          >
-            {{ option.label }}
-          </NRadioButton>
-        </NRadioGroup>
-      </NFormItem>
+        <NFormItem label="用户名" required>
+          <NInput v-model:value="formData.username" placeholder="SSH 用户名" />
+        </NFormItem>
 
-      <NFormItem v-if="showPassword" label="密码">
-        <NInput
-          v-model:value="formData.password"
-          type="password"
-          placeholder="SSH 密码"
-          show-password-on="mousedown"
-        />
-      </NFormItem>
-
-      <NFormItem v-if="showKey" label="私钥路径">
-        <NInput v-model:value="formData.privateKeyPath" placeholder="私钥文件路径" />
-      </NFormItem>
-
-      <NFormItem v-if="showKey" label="私钥口令">
-        <NInput
-          v-model:value="formData.passphrase"
-          type="password"
-          placeholder="私钥口令（可选）"
-          show-password-on="mousedown"
-        />
-      </NFormItem>
-
-      <NDivider />
-
-      <NFormItem label="标签">
-        <NSelect
-          v-model:value="formData.selectedTagIds"
-          :options="tagOptions"
-          placeholder="选择标签"
-          multiple
-          clearable
-          style="width: 100%"
-        >
-          <template #tag="{ option }">
-            <NTag
-              :color="{ color: option.color, textColor: '#fff' }"
-              size="small"
+        <NFormItem label="认证方式">
+          <NRadioGroup v-model:value="formData.authType">
+            <NRadioButton
+              v-for="option in authTypeOptions"
+              :key="option.value"
+              :value="option.value"
             >
               {{ option.label }}
-            </NTag>
-          </template>
-        </NSelect>
-      </NFormItem>
+            </NRadioButton>
+          </NRadioGroup>
+        </NFormItem>
 
-      <NFormItem label="备注">
-        <NInput
-          v-model:value="formData.description"
-          type="textarea"
-          placeholder="功能备注"
-          :rows="2"
-        />
-      </NFormItem>
-    </NForm>
+        <NFormItem v-if="showPassword" label="密码">
+          <NInput
+            v-model:value="formData.password"
+            type="password"
+            placeholder="SSH 密码"
+            show-password-on="mousedown"
+          />
+        </NFormItem>
 
-    <template #footer>
-      <NSpace justify="end">
-        <NButton @click="handleCancel">取消</NButton>
-        <NButton type="primary" @click="handleSubmit">保存</NButton>
-      </NSpace>
-    </template>
-  </NModal>
+        <NFormItem v-if="showKey" label="私钥路径">
+          <NInput v-model:value="formData.privateKeyPath" placeholder="私钥文件路径" />
+        </NFormItem>
+
+        <NFormItem v-if="showKey" label="私钥口令">
+          <NInput
+            v-model:value="formData.passphrase"
+            type="password"
+            placeholder="私钥口令（可选）"
+            show-password-on="mousedown"
+          />
+        </NFormItem>
+
+        <NDivider />
+
+        <NFormItem label="标签">
+          <NSelect
+            v-model:value="formData.selectedTagIds"
+            :options="tagOptions"
+            placeholder="选择标签"
+            multiple
+            clearable
+            style="width: 100%"
+          >
+            <template #tag="{ option }">
+              <NTag
+                :color="{ color: option.color, textColor: '#fff' }"
+                size="small"
+              >
+                {{ option.label }}
+              </NTag>
+            </template>
+          </NSelect>
+        </NFormItem>
+
+        <NFormItem label="备注">
+          <NInput
+            v-model:value="formData.description"
+            type="textarea"
+            placeholder="功能备注"
+            :rows="2"
+          />
+        </NFormItem>
+
+        <NSpace justify="end" style="margin-top: 24px">
+          <NButton @click="handleBack">取消</NButton>
+          <NButton
+            type="primary"
+            style="background: #f54e00; border-color: #f54e00"
+            @click="handleSubmit"
+          >
+            {{ isEdit ? '保存修改' : '创建连接' }}
+          </NButton>
+        </NSpace>
+      </NForm>
+    </NCard>
+  </div>
 </template>
+
+<style scoped>
+.connection-form-page {
+  max-width: 600px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-back {
+  cursor: pointer;
+}
+</style>
