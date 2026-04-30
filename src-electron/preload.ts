@@ -14,6 +14,7 @@ interface ElectronAPI {
   searchConnections: (keyword: string) => Promise<unknown>
   updateConnection: (id: string, input: unknown) => Promise<unknown>
   deleteConnection: (id: string) => Promise<unknown>
+  cloneConnection: (id: string) => Promise<unknown>
 
   // 标签管理
   createTag: (input: unknown) => Promise<unknown>

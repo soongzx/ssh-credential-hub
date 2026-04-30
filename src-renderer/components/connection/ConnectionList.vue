@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
-import { NCard, NSpace, NTag, NButton, NEmpty, NSpin, NText, NIcon, NPopconfirm, NBadge } from 'naive-ui'
-import { CreateOutline, TrashOutline, DesktopOutline, AddOutline } from '@vicons/ionicons5'
+import { ref, onMounted, watch, computed, onUnmounted } from 'vue'
+import { NCard, NSpace, NTag, NButton, NEmpty, NSpin, NText, NIcon, NPopconfirm, NBadge, NVirtualList, useMessage } from 'naive-ui'
+import { CreateOutline, TrashOutline, DesktopOutline, AddOutline, CopyOutline } from '@vicons/ionicons5'
 import type { Connection, Tag } from '@shared/types'
 import { useTagStore } from '../../stores/useTagStore'
 import { useConnectionStore } from '../../stores/useConnectionStore'
 import { useThemeStore } from '../../stores/useThemeStore'
+import { cloneConnection } from '../../api/ipc'
+
+const message = useMessage()
 
 interface Props {
   connections: Connection[]
@@ -30,12 +33,32 @@ const isDark = computed(() => themeStore.isDark)
 
 const connectionTagMap = ref<Record<string, Tag[]>>({})
 
+// 虚拟滚动配置
+const virtualListRef = ref<InstanceType<typeof NVirtualList> | null>(null)
+const itemSize = 160 // 每个连接卡片的高度（包括间距）
+const visibleCount = ref(10) // 初始可见项目数
+
+let handleResize: () => void
+
 onMounted(async () => {
   await tagStore.fetchTags()
   for (const conn of props.connections) {
     const tags = await tagStore.fetchTagsByConnection(conn.id)
     connectionTagMap.value[conn.id] = tags
   }
+  
+  // 监听窗口大小变化以调整可见项目数
+  handleResize = () => {
+    const windowHeight = window.innerHeight
+    visibleCount.value = Math.max(5, Math.floor(windowHeight / itemSize) + 2)
+  }
+  
+  handleResize()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 
 watch(
@@ -67,6 +90,92 @@ function getConnectionTags(connectionId: string): Tag[] {
 async function handleDelete(id: string): Promise<void> {
   await connectionStore.removeConnection(id)
 }
+
+async function handleClone(id: string): Promise<void> {
+  try {
+    const clonedConnection = await cloneConnection(id)
+    if (clonedConnection) {
+      // 添加到连接列表
+      await connectionStore.addConnection(clonedConnection)
+      message.success('连接克隆成功')
+    } else {
+      message.error('克隆连接失败')
+    }
+  } catch (error) {
+    message.error('克隆连接失败: ' + (error as Error).message)
+  }
+}
+
+// 虚拟滚动渲染函数
+function renderConnection(conn: Connection) {
+  return h(NCard, {
+    size: 'small',
+    class: ['connection-card', { 'connection-card--dark': isDark.value, 'connection-card--light': !isDark.value }],
+    style: { marginBottom: '12px' },
+    'body-style': { padding: '16px' }
+  }, {
+    header: () => h('div', { class: 'card-header' }, [
+      h('div', { class: 'card-title' }, [
+        h(NIcon, { size: 18, component: DesktopOutline }, {}),
+        h(NText, { strong: true, class: 'card-name' }, conn.name)
+      ]),
+      h(NSpace, null, {
+        default: () => [
+          h(NButton, {
+            text: true,
+            size: 'small',
+            class: 'btn-connect',
+            onClick: () => emit('connect', conn.id)
+          }, { default: () => '连接' }),
+          h(NButton, {
+            text: true,
+            size: 'small',
+            class: 'btn-secondary',
+            onClick: () => emit('edit', conn.id)
+          }, { default: () => '编辑' }),
+          h(NButton, {
+            text: true,
+            size: 'small',
+            class: 'btn-secondary',
+            onClick: () => handleClone(conn.id)
+          }, { default: () => '克隆' }),
+          h(NPopconfirm, {
+            onPositiveClick: () => handleDelete(conn.id)
+          }, {
+            trigger: () => h(NButton, {
+              text: true,
+              size: 'small',
+              class: 'btn-danger'
+            }, { default: () => '删除' }),
+            default: () => '确定删除此连接？'
+          })
+        ]
+      })
+    ]),
+    default: () => h('div', { class: 'card-content' }, [
+      h('div', { class: 'info-row' }, [
+        h('span', { class: 'label' }, '主机'),
+        h(NText, { code: true, style: { fontSize: '13px' } }, `${conn.host}:${conn.port}`)
+      ]),
+      h('div', { class: 'info-row' }, [
+        h('span', { class: 'label' }, '用户'),
+        h(NText, { class: 'info-value' }, conn.username)
+      ]),
+      h('div', { class: 'info-row' }, [
+        h('span', { class: 'label' }, '认证'),
+        h(NTag, {
+          type: conn.authType === 'password' ? 'success' : conn.authType === 'publickey' ? 'warning' : 'info',
+          size: 'small',
+          style: { borderRadius: '9999px', fontSize: '12px' }
+        }, { default: () => getAuthTypeLabel(conn.authType) })
+      ]),
+      conn.description ? h('div', { class: 'info-row' }, [
+        h('span', { class: 'label' }, '备注'),
+        h(NText, { depth: 3, style: { fontSize: '13px' } }, conn.description)
+      ]) : null
+    ])
+  })
+}
 </script>
 
 <template>
@@ -81,92 +190,20 @@ async function handleDelete(id: string): Promise<void> {
       </NEmpty>
     </div>
 
-    <div v-else class="connection-list">
-      <NCard
-        v-for="conn in props.connections"
-        :key="conn.id"
-        size="small"
-        class="connection-card"
-        :class="{ 'connection-card--dark': isDark, 'connection-card--light': !isDark }"
-        :body-style="{ padding: '16px' }"
+    <div v-else>
+      <NVirtualList
+        ref="virtualListRef"
+        :data="props.connections"
+        :item-size="itemSize"
+        :visible-count="visibleCount"
+        style="height: calc(100vh - 200px)"
       >
-        <template #header>
-          <div class="card-header">
-            <div class="card-title">
-              <NIcon size="18" :component="DesktopOutline" class="card-icon" />
-              <NText strong class="card-name">{{ conn.name }}</NText>
-            </div>
-            <NSpace>
-              <NButton
-                text
-                size="small"
-                class="btn-connect"
-                @click="emit('connect', conn.id)"
-              >
-                连接
-              </NButton>
-              <NButton
-                text
-                size="small"
-                class="btn-secondary"
-                @click="emit('edit', conn.id)"
-              >
-                编辑
-              </NButton>
-              <NPopconfirm @positive-click="handleDelete(conn.id)">
-                <template #trigger>
-                  <NButton
-                    text
-                    size="small"
-                    class="btn-danger"
-                  >
-                    删除
-                  </NButton>
-                </template>
-                确定删除此连接？
-              </NPopconfirm>
-            </NSpace>
+        <template #default="{ data }">
+          <div style="padding: 0 16px">
+            {{ renderConnection(data) }}
           </div>
         </template>
-
-        <div class="card-content">
-          <div class="info-row">
-            <span class="label">主机</span>
-            <NText code style="font-size: 13px">{{ conn.host }}:{{ conn.port }}</NText>
-          </div>
-          <div class="info-row">
-            <span class="label">用户</span>
-            <NText class="info-value">{{ conn.username }}</NText>
-          </div>
-          <div class="info-row">
-            <span class="label">认证</span>
-            <NTag
-              :type="conn.authType === 'password' ? 'success' : conn.authType === 'publickey' ? 'warning' : 'info'"
-              size="small"
-              style="border-radius: 9999px; font-size: 12px"
-            >
-              {{ getAuthTypeLabel(conn.authType) }}
-            </NTag>
-          </div>
-          <div v-if="getConnectionTags(conn.id).length > 0" class="info-row">
-            <span class="label">标签</span>
-            <NSpace>
-              <NTag
-                v-for="tag in getConnectionTags(conn.id)"
-                :key="tag.id"
-                size="small"
-                style="border-radius: 9999px; font-size: 12px"
-              >
-                {{ tag.name }}
-              </NTag>
-            </NSpace>
-          </div>
-          <div v-if="conn.description" class="info-row">
-            <span class="label">备注</span>
-            <NText depth="3" style="font-size: 13px">{{ conn.description }}</NText>
-          </div>
-        </div>
-      </NCard>
+      </NVirtualList>
     </div>
   </NSpin>
 </template>

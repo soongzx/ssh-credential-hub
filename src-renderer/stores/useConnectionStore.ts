@@ -30,6 +30,23 @@ export const useConnectionStore = defineStore('connection', () => {
 
   const connectionCount = computed(() => connections.value.length)
 
+  // 筛选功能
+  const filters = ref({
+    search: '',
+    tags: [] as string[],
+    group: null as string | null,
+    authType: null as string | null
+  })
+
+  function applyFilters(newFilters: {
+    search: string
+    tags: string[]
+    group: string | null
+    authType: string | null
+  }): void {
+    filters.value = newFilters
+  }
+
   // Actions
   async function fetchConnections(): Promise<void> {
     loading.value = true
@@ -96,6 +113,14 @@ export const useConnectionStore = defineStore('connection', () => {
       connections.value = connections.value.filter((c) => c.id !== id)
     }
     return result
+  }
+
+  async function cloneConnection(id: string): Promise<Connection | null> {
+    const cloned = await connectionApi.cloneConnection(id)
+    if (cloned) {
+      connections.value.unshift(cloned)
+    }
+    return cloned
   }
 
   function getConnectionById(id: string): Connection | undefined {

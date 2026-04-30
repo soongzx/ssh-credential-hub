@@ -42,7 +42,19 @@ onMounted(() => {
 
 // 构建树形数据
 const treeData = computed(() => {
+  // 用于防止循环引用的跟踪集合
+  const visited = new Set<string>()
+  
   function buildTree(parentId: string | null): TreeOption[] {
+    // 防止循环引用
+    if (visited.has(parentId as string)) {
+      return []
+    }
+    
+    if (parentId !== null) {
+      visited.add(parentId)
+    }
+    
     const groups = parentId === null
       ? groupStore.rootGroups
       : groupStore.getChildren(parentId)
@@ -55,6 +67,8 @@ const treeData = computed(() => {
     }))
   }
 
+  // 每次重新计算时重置访问集合
+  visited.clear()
   return buildTree(null)
 })
 
@@ -100,6 +114,10 @@ async function handleDelete(id: string): Promise<void> {
 function handleClose(): void {
   showForm.value = false
   editingGroup.value = null
+}
+
+function handleModalUpdateShow(value: boolean): void {
+  showForm.value = value
 }
 
 async function handleSubmit(): Promise<void> {
@@ -183,7 +201,7 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
       :title="editingGroup ? '编辑分组' : '新建分组'"
       style="width: 400px; border-radius: 10px"
       :mask-closable="false"
-      @update:show="showForm = $event"
+      @update:show="handleModalUpdateShow"
     >
       <NForm label-placement="left" label-width="80px">
         <NFormItem label="名称" required>

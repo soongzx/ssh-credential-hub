@@ -52,6 +52,10 @@ function registerConnectionHandlers(): void {
   ipcMain.handle('connection:delete', (_event, id: string) => {
     return connectionRepo.deleteConnection(id)
   })
+
+  ipcMain.handle('connection:clone', (_event, id: string) => {
+    return connectionRepo.cloneConnection(id)
+  })
 }
 
 /**
@@ -122,6 +126,10 @@ function registerGroupHandlers(): void {
 
   ipcMain.handle('group:delete', (_event, id: string) => {
     return groupRepo.deleteGroup(id)
+  })
+
+  ipcMain.handle('group:getTree', () => {
+    return groupRepo.getGroupTree()
   })
 }
 

@@ -94,6 +94,11 @@ export async function deleteConnection(id: string): Promise<boolean> {
   return api.deleteConnection(id) as Promise<boolean>
 }
 
+export async function cloneConnection(id: string): Promise<Connection | null> {
+  if (!isElectron()) return null
+  return api.cloneConnection(id) as Promise<Connection | null>
+}
+
 // 标签管理 API
 export async function createTag(input: {
   id: string
@@ -189,6 +194,11 @@ export async function updateGroup(
 export async function deleteGroup(id: string): Promise<boolean> {
   if (!isElectron()) return false
   return api.deleteGroup(id) as Promise<boolean>
+}
+
+export async function getGroupTree(): Promise<Group[]> {
+  if (!isElectron()) return []
+  return api.getGroupTree() as Promise<Group[]>
 }
 
 // 终端配置 API

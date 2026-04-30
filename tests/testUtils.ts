@@ -80,7 +80,10 @@ export function createTestDatabase(): Database.Database {
 /**
  * 清理测试数据库
  */
-export function cleanupTestDatabase(db: Database.Database): void {
+export function cleanupTestDatabase(db: Database.Database | undefined): void {
+  if (!db) {
+    return
+  }
   const dbPath = db.name
   db.close()
 

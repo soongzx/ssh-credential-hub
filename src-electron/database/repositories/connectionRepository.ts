@@ -223,6 +223,60 @@ export function deleteConnection(id: string): boolean {
 }
 
 /**
+ * 克隆连接
+ * 基于现有连接创建一个新连接，ID 为新生成的 UUID
+ */
+export function cloneConnection(id: string): Connection | null {
+  const db = getDatabase()
+  
+  // 获取原始连接
+  const originalConnection = getConnectionById(id)
+  if (!originalConnection) {
+    return null
+  }
+  
+  // 生成新的 ID
+  const newId = generateUUID()
+  
+  // 创建新的连接，使用原始连接的数据，但 ID 为新生成的
+  const stmt = db.prepare(
+    `INSERT INTO connections (
+      id, name, host, port, username, auth_type,
+      password_encrypted, private_key_path, passphrase_encrypted,
+      group_id, description
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+
+  stmt.run(
+    newId,
+    originalConnection.name,
+    originalConnection.host,
+    originalConnection.port,
+    originalConnection.username,
+    originalConnection.authType,
+    originalConnection.password ? encrypt(originalConnection.password) : null,
+    originalConnection.privateKeyPath ?? null,
+    originalConnection.passphrase ? encrypt(originalConnection.passphrase) : null,
+    originalConnection.groupId ?? null,
+    originalConnection.description ?? null
+  )
+
+  return getConnectionById(newId)!
+}
+
+/**
+ * 生成 UUID
+ * 用于创建新连接的 ID
+ */
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
+/**
  * 批量创建连接
  */
 export function createConnections(inputs: CreateConnectionInput[]): Connection[] {

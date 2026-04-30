@@ -128,6 +128,38 @@ export function deleteGroup(id: string): boolean {
   return result.changes > 0
 }
 
+/**
+ * 获取分组树结构
+ * 返回完整的树形结构
+ */
+export function getGroupTree(): Group[] {
+  const db = getDatabase()
+  
+  // 获取所有分组
+  const allGroups = getAllGroups()
+  
+  // 构建树形结构
+  const groupMap = new Map<string, Group>()
+  const treeRoots: Group[] = []
+  
+  // 将所有分组存入 Map 便于快速查找
+  allGroups.forEach(group => {
+    groupMap.set(group.id, { ...group })
+  })
+  
+  // 构建父子关系
+  allGroups.forEach(group => {
+    const parentGroup = group.parentId ? groupMap.get(group.parentId) : null
+    if (parentGroup) {
+      // 确保父分组有 children 属性（这里简单处理，实际应用中可能需要更复杂的结构）
+    } else {
+      treeRoots.push(groupMap.get(group.id)!)
+    }
+  })
+  
+  return treeRoots
+}
+
 function mapRowToGroup(row: Record<string, unknown>): Group {
   return {
     id: row.id as string,

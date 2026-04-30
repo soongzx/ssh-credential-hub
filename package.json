@@ -27,6 +27,7 @@
     "better-sqlite3": "^11.0.0",
     "naive-ui": "^2.38.0",
     "pinia": "^2.1.0",
+    "uuid": "^14.0.0",
     "vfonts": "^0.0.3",
     "vue": "^3.4.0"
   },
@@ -69,7 +70,7 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": [
             "x64"
           ]

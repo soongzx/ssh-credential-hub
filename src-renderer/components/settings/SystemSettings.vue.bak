@@ -173,46 +173,56 @@ async function handleResetPath(): Promise<void> {
 
       <NDivider style="margin: 12px 0" />
 
-      <div class="setting-item" style="flex-direction: column; align-items: stretch; margin-top: 12px;">
-        <NText depth="3" style="font-size: 13px; margin-bottom: 8px;">
-          修改数据库路径
-        </NText>
-        <div style="display: flex; gap: 8px; align-items: center;">
+      <div class="setting-item">
+        <div class="setting-info">
+          <NText class="setting-label">当前数据库路径</NText>
+          <NText depth="3" style="font-size: 13px; word-break: break-all;">
+            {{ currentDbPath }}
+          </NText>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div style="width: 100%; margin-top: 8px;">
           <NInput
             v-model:value="newDbPath"
             type="text"
             placeholder="请输入数据库文件路径"
             :disabled="isPathChanging"
-            style="flex: 1;"
+            style="width: 100%"
           />
-          <NButton
-            type="primary"
-            :loading="isPathChanging"
-            :disabled="isPathChanging"
-            @click="handlePathChange"
-          >
-            <template #icon>
-              <NIcon :component="SaveOutline" />
-            </template>
-            保存路径
-          </NButton>
-          <NButton
-            :disabled="isPathChanging"
-            @click="handleResetPath"
-          >
-            重置
-          </NButton>
         </div>
-        <div style="margin-top: 12px;">
-          <NAlert
-            type="info"
-            size="small"
-          >
-            <div>
-              数据库路径将影响所有连接数据的存储位置
-            </div>
-          </NAlert>
-        </div>
+      </div>
+
+      <div class="setting-item" style="margin-top: 8px; display: flex; gap: 8px; justify-content: flex-start;">
+        <NButton
+          type="primary"
+          :loading="isPathChanging"
+          @click="handlePathChange"
+          :disabled="isPathChanging"
+        >
+          <template #icon>
+            <NIcon :component="SaveOutline" />
+          </template>
+          保存路径
+        </NButton>
+        <NButton
+          @click="handleResetPath"
+          :disabled="isPathChanging"
+        >
+          重置
+        </NButton>
+      </div>
+
+      <div class="setting-item" style="margin-top: 8px;">
+        <NAlert
+          type="info"
+          size="small"
+        >
+          <div>
+            数据库路径将影响所有连接数据的存储位置
+          </div>
+        </NAlert>
       </div>
 
       <NDivider style="margin: 12px 0" />

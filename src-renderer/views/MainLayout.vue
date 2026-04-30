@@ -34,6 +34,7 @@ import { useConnectionStore } from '../stores/useConnectionStore'
 import { useThemeStore } from '../stores/useThemeStore'
 import ConnectionList from '../components/connection/ConnectionList.vue'
 import ConnectionForm from '../components/connection/ConnectionForm.vue'
+import ConnectionFilter from '../components/connection/ConnectionFilter.vue'
 import SshConfigImport from '../components/connection/SshConfigImport.vue'
 import CsvImport from '../components/connection/CsvImport.vue'
 import TagManager from '../components/tag/TagManager.vue'
@@ -45,8 +46,13 @@ const themeStore = useThemeStore()
 
 const menuOptions: MenuOption[] = [
   {
-    label: '连接管理',
+    label: '连接列表',
     key: 'connections',
+    icon: () => h(NIcon, null, { default: () => h(ServerOutline) })
+  },
+  {
+    label: '信息导入',
+    key: 'import',
     icon: () => h(NIcon, null, { default: () => h(ServerOutline) }),
     children: [
       {
@@ -102,20 +108,29 @@ function handleMenuSelect(key: string): void {
     showConnectionForm.value = true
     showSshConfigImport.value = false
     showCsvImport.value = false
+    activeMenu.value = 'connections'
     return
   }
   if (key === 'connections-ssh-config') {
     showSshConfigImport.value = true
     showConnectionForm.value = false
     showCsvImport.value = false
-    activeMenu.value = 'connections'
+    activeMenu.value = 'import'
     return
   }
   if (key === 'connections-csv') {
     showCsvImport.value = true
     showSshConfigImport.value = false
     showConnectionForm.value = false
-    activeMenu.value = 'connections'
+    activeMenu.value = 'import'
+    return
+  }
+  if (key === 'import') {
+    // 当点击信息导入菜单项时，显示导入页面而不是连接列表
+    showSshConfigImport.value = false
+    showConnectionForm.value = false
+    showCsvImport.value = false
+    activeMenu.value = 'import'
     return
   }
   activeMenu.value = key
@@ -126,6 +141,11 @@ function handleMenuSelect(key: string): void {
 
 function handleSearch(value: string): void {
   connectionStore.searchConnections(value)
+}
+
+function handleConnectionFormBack(): void {
+  showConnectionForm.value = false
+  activeMenu.value = 'import'
 }
 </script>
 
@@ -178,6 +198,7 @@ function handleSearch(value: string): void {
           <div class="header-left">
             <NText strong class="header-title">
               {{ activeMenu === 'connections' ? '连接列表' :
+                 activeMenu === 'import' ? '信息导入' :
                  activeMenu === 'tags' ? '标签管理' :
                  activeMenu === 'groups' ? '分组管理' :
                  activeMenu === 'settings' ? '系统设置' : '' }}
@@ -202,19 +223,50 @@ function handleSearch(value: string): void {
 
         <div class="page-content">
           <template v-if="activeMenu === 'connections'">
+            <ConnectionForm
+              v-if="showConnectionForm"
+              :connection-id="editingConnection"
+              @back="showConnectionForm = false"
+            />
+            <div v-else class="connection-page-content">
+              <ConnectionFilter />
+              <ConnectionList
+                :connections="connectionStore.filteredConnections"
+                :loading="connectionStore.loading"
+                @edit="(id) => { editingConnection = id; showConnectionForm = true }"
+              />
+            </div>
+          </template>
+
+          <template v-else-if="activeMenu === 'import'">
             <SshConfigImport v-if="showSshConfigImport" />
             <CsvImport v-else-if="showCsvImport" />
             <ConnectionForm
               v-else-if="showConnectionForm"
               :connection-id="editingConnection"
-              @back="showConnectionForm = false"
+              @back="handleConnectionFormBack"
             />
-            <ConnectionList
-              v-else
-              :connections="connectionStore.filteredConnections"
-              :loading="connectionStore.loading"
-              @edit="(id) => { editingConnection = id; showConnectionForm = true }"
-            />
+            <div v-else class="import-page-content">
+              <NCard title="信息导入" :bordered="false" style="border-radius: 8px">
+                <div style="text-align: center; padding: 40px 20px;">
+                  <NIcon :component="ServerOutline" size="48" color="#1890ff" style="margin-bottom: 20px;" />
+                  <NText depth="2" style="font-size: 16px; margin-bottom: 10px;">
+                    选择导入方式
+                  </NText>
+                  <NText depth="3" style="font-size: 14px;">
+                    从 SSH Config 或 CSV 文件导入连接信息
+                  </NText>
+                  <NSpace style="margin-top: 20px;">
+                    <NButton @click="showSshConfigImport = true; activeMenu = 'import'">
+                      从 SSH Config 导入
+                    </NButton>
+                    <NButton @click="showCsvImport = true; activeMenu = 'import'">
+                      从 CSV 导入
+                    </NButton>
+                  </NSpace>
+                </div>
+              </NCard>
+            </div>
           </template>
 
           <TagManager v-else-if="activeMenu === 'tags'" />
@@ -324,6 +376,12 @@ function handleSearch(value: string): void {
 
 .app-content {
   background: var(--bg-content) !important;
+}
+
+.connection-page-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .app-header {
