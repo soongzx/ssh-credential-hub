@@ -4,6 +4,8 @@ import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 import { resolve } from 'path'
 
+const isSkipElectron = process.env.SKIP_ELECTRON === 'true'
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -11,6 +13,10 @@ export default defineConfig({
       {
         entry: resolve(__dirname, 'src-electron/main.ts'),
         onstart(options) {
+          if (isSkipElectron) {
+            console.log('[vite] Skipping Electron startup (SKIP_ELECTRON=true)')
+            return
+          }
           if (options.startup) {
             options.startup()
           }
@@ -30,6 +36,7 @@ export default defineConfig({
       {
         entry: resolve(__dirname, 'src-electron/preload.ts'),
         onstart(options) {
+          if (isSkipElectron) return
           if (options.reload) {
             options.reload()
           }

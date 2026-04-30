@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { NConfigProvider, zhCN, dateZhCN } from 'naive-ui'
+import { NConfigProvider, NMessageProvider, zhCN, dateZhCN } from 'naive-ui'
 import MainLayout from './views/MainLayout.vue'
 </script>
 
 <template>
   <NConfigProvider :locale="zhCN" :date-locale="dateZhCN">
-    <MainLayout />
+    <NMessageProvider>
+      <MainLayout />
+    </NMessageProvider>
   </NConfigProvider>
 </template>
 

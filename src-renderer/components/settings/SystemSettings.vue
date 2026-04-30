@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import {
   NCard,
   NSpace,
@@ -7,30 +8,114 @@ import {
   NDivider,
   NSwitch,
   NGrid,
-  NGi
+  NGi,
+  NInput,
+  NAlert,
+  NIcon,
+  useMessage
 } from 'naive-ui'
+import { 
+  SaveOutline, 
+  WarningOutline,
+  CloudDownloadOutline,
+  CloudUploadOutline 
+} from '@vicons/ionicons5'
 import { useThemeStore } from '../../stores/useThemeStore'
+import { getDatabasePath, setDatabasePath } from '../../api/ipc'
 
 const themeStore = useThemeStore()
+const isDark = computed(() => themeStore.isDark)
+const message = useMessage()
+
+const themeOptions = [
+  { label: '深色模式', value: 'dark' },
+  { label: '浅色模式', value: 'light' },
+  { label: '黑色主题', value: 'black' },
+  { label: '蓝色主题', value: 'blue' },
+  { label: '黄色主题', value: 'yellow' }
+]
+
+const currentDbPath = ref('')
+const newDbPath = ref('')
+const isPathValid = ref(true)
+const isPathChanging = ref(false)
+
+onMounted(async () => {
+  await loadDatabasePath()
+})
+
+async function loadDatabasePath(): Promise<void> {
+  try {
+    currentDbPath.value = await getDatabasePath()
+    newDbPath.value = currentDbPath.value
+  } catch (error) {
+    console.error('Failed to load database path:', error)
+  }
+}
+
+async function validatePath(path: string): Promise<boolean> {
+  // 简单的路径验证
+  if (!path.trim()) {
+    return false
+  }
+  
+  // 检查是否包含非法字符
+  const invalidChars = /[<>:"|?*\x00-\x1F]/
+  return !invalidChars.test(path)
+}
+
+async function handlePathChange(): Promise<void> {
+  if (!newDbPath.value.trim()) {
+    message.warning('请输入数据库路径')
+    return
+  }
+  
+  if (!await validatePath(newDbPath.value)) {
+    message.warning('路径包含非法字符')
+    return
+  }
+  
+  isPathChanging.value = true
+  
+  try {
+    const success = await setDatabasePath(newDbPath.value)
+    if (success) {
+      currentDbPath.value = newDbPath.value
+      message.success('数据库路径已更新')
+    } else {
+      message.error('更新数据库路径失败')
+    }
+  } catch (error) {
+    message.error('更新数据库路径时发生错误')
+    console.error('Failed to update database path:', error)
+  } finally {
+    isPathChanging.value = false
+  }
+}
+
+async function handleResetPath(): Promise<void> {
+  newDbPath.value = currentDbPath.value
+  isPathValid.value = true
+}
 </script>
 
 <template>
   <div class="settings-container">
-    <!-- 外观设置 -->
     <NCard
       title="外观"
       :bordered="true"
-      style="background: #f2f1ed; border: 1px solid rgba(38, 37, 30, 0.1); border-radius: 8px"
+      class="settings-card"
+      :class="{ 'settings-card--dark': isDark, 'settings-card--light': !isDark }"
     >
       <template #header-extra>
         <NText depth="3" style="font-size: 13px">个性化设置</NText>
       </template>
 
-      <NDivider style="margin: 12px 0; border-color: rgba(38, 37, 30, 0.1)" />
+      <NDivider style="margin: 12px 0" />
 
       <div class="setting-item">
         <div class="setting-info">
-          <NText style="color: #26251e; font-size: 14px">深色模式</NText>
+          <NText class="setting-label">深色模式</NText>
           <NText depth="3" style="font-size: 13px">
             开启后使用深色主题，减少眼睛疲劳
           </NText>
@@ -41,46 +126,123 @@ const themeStore = useThemeStore()
         />
       </div>
 
-      <NDivider style="margin: 12px 0; border-color: rgba(38, 37, 30, 0.1)" />
+      <NDivider style="margin: 12px 0" />
 
       <div class="setting-item">
         <div class="setting-info">
-          <NText style="color: #26251e; font-size: 14px">当前主题</NText>
+          <NText class="setting-label">当前主题</NText>
           <NText depth="3" style="font-size: 13px">
-            {{ themeStore.themeMode === 'dark' ? '深色模式' : '浅色模式' }}
+            {{ 
+              themeStore.themeMode === 'dark' ? '深色模式' : 
+              themeStore.themeMode === 'light' ? '浅色模式' :
+              themeStore.themeMode === 'black' ? '黑色主题' :
+              themeStore.themeMode === 'blue' ? '蓝色主题' : '黄色主题'
+            }}
           </NText>
         </div>
         <NSpace>
           <NButton
-            :type="themeStore.themeMode === 'light' ? 'primary' : 'tertiary'"
+            v-for="option in themeOptions"
+            :key="option.value"
+            :type="themeStore.themeMode === option.value ? 'primary' : 'tertiary'"
             size="small"
-            style="border-radius: 8px"
-            @click="themeStore.setTheme('light')"
+            @click="themeStore.setTheme(option.value)"
           >
-            浅色
-          </NButton>
-          <NButton
-            :type="themeStore.themeMode === 'dark' ? 'primary' : 'tertiary'"
-            size="small"
-            style="border-radius: 8px"
-            @click="themeStore.setTheme('dark')"
-          >
-            深色
+            {{ option.label }}
           </NButton>
         </NSpace>
       </div>
     </NCard>
 
-    <!-- 关于 -->
+    <NCard
+      title="数据库"
+      :bordered="true"
+      class="settings-card"
+      :class="{ 'settings-card--dark': isDark, 'settings-card--light': !isDark }"
+      style="margin-top: 16px"
+    >
+      <template #header-extra>
+        <NText depth="3" style="font-size: 13px">数据库配置</NText>
+      </template>
+
+      <NDivider style="margin: 12px 0" />
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <NText class="setting-label">当前数据库路径</NText>
+          <NText depth="3" style="font-size: 13px; word-break: break-all;">
+            {{ currentDbPath }}
+          </NText>
+        </div>
+      </div>
+
+      <NDivider style="margin: 12px 0" />
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <NText class="setting-label">修改数据库路径</NText>
+          <NText depth="3" style="font-size: 13px">
+            请输入新的数据库文件路径（将覆盖当前设置）
+          </NText>
+        </div>
+        <div style="width: 100%; margin-top: 8px;">
+          <NInput
+            v-model:value="newDbPath"
+            type="text"
+            placeholder="请输入数据库文件路径"
+            :disabled="isPathChanging"
+            style="width: 100%"
+          />
+        </div>
+        <div style="margin-top: 8px; display: flex; gap: 8px;">
+          <NButton
+            type="primary"
+            :loading="isPathChanging"
+            @click="handlePathChange"
+            :disabled="isPathChanging"
+          >
+            <template #icon>
+              <NIcon :component="SaveOutline" />
+            </template>
+            保存路径
+          </NButton>
+          <NButton
+            @click="handleResetPath"
+            :disabled="isPathChanging"
+          >
+            重置
+          </NButton>
+        </div>
+      </div>
+
+      <NDivider style="margin: 12px 0" />
+
+      <NAlert
+        type="warning"
+        size="small"
+        style="margin-top: 8px"
+      >
+        <template #icon>
+          <NIcon :component="WarningOutline" />
+        </template>
+        <div>
+          <strong>注意：</strong>修改数据库路径后，应用需要重启才能生效。
+          请确保新路径存在且有读写权限。
+        </div>
+      </NAlert>
+    </NCard>
+
     <NCard
       title="关于"
       :bordered="true"
-      style="margin-top: 16px; background: #f2f1ed; border: 1px solid rgba(38, 37, 30, 0.1); border-radius: 8px"
+      class="settings-card"
+      :class="{ 'settings-card--dark': isDark, 'settings-card--light': !isDark }"
+      style="margin-top: 16px"
     >
-      <NDivider style="margin: 12px 0; border-color: rgba(38, 37, 30, 0.1)" />
+      <NDivider style="margin: 12px 0" />
 
       <div class="about-info">
-        <NText strong style="color: #26251e; font-size: 16px">SSH Credential Hub</NText>
+        <NText strong class="about-title">SSH Credential Hub</NText>
         <NText depth="3" style="font-size: 13px; display: block; margin-top: 4px">
           Windows SSH 连接管理工具
         </NText>
@@ -97,6 +259,16 @@ const themeStore = useThemeStore()
   max-width: 640px;
 }
 
+.settings-card--dark {
+  border: 1px solid #2A2A2E;
+  border-radius: 8px;
+}
+
+.settings-card--light {
+  border: 1px solid #E8DFD2;
+  border-radius: 10px;
+}
+
 .setting-item {
   display: flex;
   align-items: center;
@@ -110,7 +282,15 @@ const themeStore = useThemeStore()
   gap: 4px;
 }
 
+.setting-label {
+  font-size: 14px;
+}
+
 .about-info {
   padding: 8px 0;
+}
+
+.about-title {
+  font-size: 16px;
 }
 </style>

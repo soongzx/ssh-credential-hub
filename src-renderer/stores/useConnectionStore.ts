@@ -66,6 +66,18 @@ export const useConnectionStore = defineStore('connection', () => {
     return connection
   }
 
+  async function addConnections(
+    data: Omit<Connection, 'id' | 'createdAt' | 'updatedAt'>[]
+  ): Promise<Connection[]> {
+    const connectionsToCreate = data.map((item) => ({
+      id: crypto.randomUUID(),
+      ...item
+    }))
+    const createdConnections = await connectionApi.createConnections(connectionsToCreate)
+    connections.value.unshift(...createdConnections)
+    return createdConnections
+  }
+
   async function updateConnection(
     id: string,
     data: Partial<Omit<Connection, 'id' | 'createdAt' | 'updatedAt'>>

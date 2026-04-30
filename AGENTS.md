@@ -1,5 +1,8 @@
 # SSH Credential Hub - Agent Guidelines
 
+## 项目模型信息
+ 
+
 ## 项目概述
 
 Windows 环境下管理的 SSH 连接信息工具。使用 Electron + Vue 3 + SQLite。

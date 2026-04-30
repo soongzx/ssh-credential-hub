@@ -15,10 +15,11 @@ import {
   NDivider,
   NText,
   NIcon,
-  useMessage
+  useMessage,
+  NAlert
 } from 'naive-ui'
 import type { SelectOption } from 'naive-ui'
-import { ArrowBackOutline } from '@vicons/ionicons5'
+import { ArrowBackOutline, WarningOutline } from '@vicons/ionicons5'
 import { useConnectionStore } from '../../stores/useConnectionStore'
 import { useTagStore } from '../../stores/useTagStore'
 import { AuthType } from '@shared/types'
@@ -188,6 +189,11 @@ async function syncTags(connectionId: string): Promise<void> {
 function handleBack(): void {
   emit('back')
 }
+
+// 添加一个验证函数来检查是否应该显示警告
+ function shouldShowAuthWarning(): boolean {
+   return formData.value.authType === AuthType.PASSWORD && !formData.value.password
+ }
 </script>
 
 <template>
@@ -208,7 +214,7 @@ function handleBack(): void {
 
     <NCard
       :bordered="false"
-      style="background: #f2f1ed; border-radius: 8px; margin-top: 16px"
+      style="border-radius: 8px; margin-top: 16px"
     >
       <NForm label-placement="left" label-width="100px">
         <NFormItem label="名称" required>
@@ -246,6 +252,17 @@ function handleBack(): void {
             placeholder="SSH 密码"
             show-password-on="mousedown"
           />
+          <NAlert
+            v-if="shouldShowAuthWarning()"
+            type="warning"
+            size="small"
+            style="margin-top: 8px"
+          >
+            <template #icon>
+              <NIcon :component="WarningOutline" />
+            </template>
+            选择密码认证方式但未填写密码，可能导致连接失败
+          </NAlert>
         </NFormItem>
 
         <NFormItem v-if="showKey" label="私钥路径">
@@ -296,7 +313,6 @@ function handleBack(): void {
           <NButton @click="handleBack">取消</NButton>
           <NButton
             type="primary"
-            style="background: #f54e00; border-color: #f54e00"
             @click="handleSubmit"
           >
             {{ isEdit ? '保存修改' : '创建连接' }}
@@ -320,5 +336,26 @@ function handleBack(): void {
 
 .header-back {
   cursor: pointer;
+}
+
+/* 增强表单样式 */
+.connection-form-page :deep(.n-form-item) {
+  margin-bottom: 16px;
+}
+
+.connection-form-page :deep(.n-form-item-label) {
+  font-weight: 500;
+}
+
+.connection-form-page :deep(.n-input) {
+  border-radius: 4px;
+}
+
+.connection-form-page :deep(.n-input-number) {
+  border-radius: 4px;
+}
+
+.connection-form-page :deep(.n-button) {
+  border-radius: 4px;
 }
 </style>

@@ -7,6 +7,7 @@ import * as connectionRepo from '../database/repositories/connectionRepository'
 import * as tagRepo from '../database/repositories/tagRepository'
 import * as groupRepo from '../database/repositories/groupRepository'
 import * as terminalRepo from '../database/repositories/terminalConfigRepository'
+import { setCustomDbPath, getCurrentDbPath } from '../database/index'
 
 /**
  * 注册所有 IPC 处理器
@@ -17,6 +18,7 @@ export function registerIpcHandlers(): void {
   registerTagHandlers()
   registerGroupHandlers()
   registerTerminalConfigHandlers()
+  registerDatabaseHandlers()
 }
 
 /**
@@ -25,6 +27,10 @@ export function registerIpcHandlers(): void {
 function registerConnectionHandlers(): void {
   ipcMain.handle('connection:create', (_event, input) => {
     return connectionRepo.createConnection(input)
+  })
+
+  ipcMain.handle('connection:create-batch', (_event, input) => {
+    return connectionRepo.createConnections(input)
   })
 
   ipcMain.handle('connection:getById', (_event, id: string) => {
@@ -145,5 +151,19 @@ function registerTerminalConfigHandlers(): void {
 
   ipcMain.handle('terminalConfig:delete', (_event, id: string) => {
     return terminalRepo.deleteTerminalConfig(id)
+  })
+}
+
+/**
+ * 数据库管理 IPC
+ */
+function registerDatabaseHandlers(): void {
+  ipcMain.handle('database:setPath', (_event, path: string) => {
+    setCustomDbPath(path)
+    return true
+  })
+
+  ipcMain.handle('database:getPath', () => {
+    return getCurrentDbPath()
   })
 }

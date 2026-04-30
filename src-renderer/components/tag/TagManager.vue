@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import {
   NCard,
   NSpace,
@@ -17,8 +17,11 @@ import {
 } from 'naive-ui'
 import { AddOutline, CreateOutline, TrashOutline, PricetagOutline } from '@vicons/ionicons5'
 import { useTagStore } from '../../stores/useTagStore'
+import { useThemeStore } from '../../stores/useThemeStore'
 
 const tagStore = useTagStore()
+const themeStore = useThemeStore()
+const isDark = computed(() => themeStore.isDark)
 
 const showForm = ref(false)
 const editingTag = ref<string | null>(null)
@@ -89,6 +92,7 @@ async function handleSubmit(): Promise<void> {
         :key="tag.id"
         size="small"
         class="tag-card"
+        :class="{ 'tag-card--dark': isDark, 'tag-card--light': !isDark }"
         :body-style="{ padding: '16px' }"
       >
         <template #header>
@@ -106,7 +110,7 @@ async function handleSubmit(): Promise<void> {
               <NButton
                 text
                 size="small"
-                style="color: rgba(38, 37, 30, 0.55); font-size: 13px"
+                class="btn-edit"
                 @click="handleEdit(tag)"
               >
                 编辑
@@ -114,7 +118,7 @@ async function handleSubmit(): Promise<void> {
               <NButton
                 text
                 size="small"
-                style="color: #cf2d56; font-size: 13px"
+                class="btn-delete"
                 @click="handleDelete(tag.id)"
               >
                 删除
@@ -130,7 +134,7 @@ async function handleSubmit(): Promise<void> {
       :show="showForm"
       preset="card"
       :title="editingTag ? '编辑标签' : '新建标签'"
-      style="width: 400px; background: #f2f1ed; border-radius: 8px"
+      style="width: 400px; border-radius: 10px"
       :mask-closable="false"
       @update:show="showForm = $event"
     >
@@ -139,7 +143,6 @@ async function handleSubmit(): Promise<void> {
           <NInput
             v-model:value="formData.name"
             placeholder="标签名称"
-            style="border-radius: 8px"
           />
         </NFormItem>
 
@@ -150,10 +153,9 @@ async function handleSubmit(): Promise<void> {
 
       <template #footer>
         <NSpace justify="end">
-          <NButton style="border-radius: 8px" @click="handleClose">取消</NButton>
+          <NButton @click="handleClose">取消</NButton>
           <NButton
             type="primary"
-            style="border-radius: 8px; background: #f54e00; border-color: #f54e00"
             @click="handleSubmit"
           >
             保存
@@ -171,16 +173,24 @@ async function handleSubmit(): Promise<void> {
   gap: 12px;
 }
 
-.tag-card {
-  background: #f2f1ed;
-  border: 1px solid rgba(38, 37, 30, 0.1);
-  border-radius: 8px;
-  transition: box-shadow 200ms ease, border-color 200ms ease;
+.tag-card--dark {
+  border: 1px solid #2A2A2E;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
-.tag-card:hover {
-  border-color: rgba(38, 37, 30, 0.2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+.tag-card--dark:hover {
+  border-color: #3A3A42;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.tag-card--light {
+  border: 1px solid #E8DFD2;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.tag-card--light:hover {
+  border-color: #D4C8B8;
+  box-shadow: 0 4px 12px rgba(58, 50, 40, 0.1);
 }
 
 .card-header {
@@ -194,13 +204,25 @@ async function handleSubmit(): Promise<void> {
   align-items: center;
 }
 
+.btn-edit, .btn-delete {
+  font-size: 13px;
+}
+
 .empty-state {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 300px;
-  background: #f2f1ed;
-  border: 1px solid rgba(38, 37, 30, 0.1);
-  border-radius: 8px;
+  border-radius: 10px;
+}
+
+.empty-state--dark {
+  background: #0E0E10;
+  border: 1px solid #1E1E22;
+}
+
+.empty-state--light {
+  background: #FFFCF7;
+  border: 1px solid #EDE6DA;
 }
 </style>

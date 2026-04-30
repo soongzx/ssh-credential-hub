@@ -223,6 +223,43 @@ export function deleteConnection(id: string): boolean {
 }
 
 /**
+ * 批量创建连接
+ */
+export function createConnections(inputs: CreateConnectionInput[]): Connection[] {
+  const db = getDatabase()
+
+  const stmt = db.prepare(
+    `INSERT INTO connections (
+      id, name, host, port, username, auth_type,
+      password_encrypted, private_key_path, passphrase_encrypted,
+      group_id, description
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+
+  const connections: Connection[] = []
+
+  for (const input of inputs) {
+    stmt.run(
+      input.id,
+      input.name,
+      input.host,
+      input.port ?? 22,
+      input.username,
+      input.authType,
+      input.password ? encrypt(input.password) : null,
+      input.privateKeyPath ?? null,
+      input.passphrase ? encrypt(input.passphrase) : null,
+      input.groupId ?? null,
+      input.description ?? null
+    )
+
+    connections.push(getConnectionById(input.id)!)
+  }
+
+  return connections
+}
+
+/**
  * 数据库行映射为 Connection 对象
  */
 function mapRowToConnection(row: Record<string, unknown>): Connection {

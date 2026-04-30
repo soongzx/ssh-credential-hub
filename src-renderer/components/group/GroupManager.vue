@@ -18,9 +18,12 @@ import {
 import type { TreeOption, SelectOption } from 'naive-ui'
 import { AddOutline, CreateOutline, TrashOutline, FolderOutline } from '@vicons/ionicons5'
 import { useGroupStore } from '../../stores/useGroupStore'
+import { useThemeStore } from '../../stores/useThemeStore'
 import type { Group } from '@shared/types'
 
 const groupStore = useGroupStore()
+const themeStore = useThemeStore()
+const isDark = computed(() => themeStore.isDark)
 
 const showForm = ref(false)
 const editingGroup = ref<string | null>(null)
@@ -139,7 +142,7 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
 
     <!-- 分组列表 -->
     <div v-else class="group-list">
-      <NCard size="small" :body-style="{ padding: '16px' }" style="background: #f2f1ed; border: 1px solid rgba(38, 37, 30, 0.1); border-radius: 8px">
+      <NCard size="small" :body-style="{ padding: '16px' }" class="group-card" :class="{ 'group-card--dark': isDark, 'group-card--light': !isDark }">
         <NTree
           :data="treeData"
           :render-switcher-icon="renderSwitcherIcon"
@@ -148,12 +151,12 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
         >
           <template #default="{ option }">
             <div class="tree-item">
-              <NText style="color: #26251e; font-size: 14px">{{ option.label }}</NText>
+              <NText class="tree-label">{{ option.label }}</NText>
               <NSpace>
                 <NButton
                   text
                   size="small"
-                  style="color: rgba(38, 37, 30, 0.55); font-size: 13px"
+                  class="btn-edit"
                   @click.stop="handleEdit(groupStore.groups.find(g => g.id === option.key)!)"
                 >
                   编辑
@@ -161,7 +164,7 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
                 <NButton
                   text
                   size="small"
-                  style="color: #cf2d56; font-size: 13px"
+                  class="btn-delete"
                   @click.stop="handleDelete(option.key as string)"
                 >
                   删除
@@ -178,7 +181,7 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
       :show="showForm"
       preset="card"
       :title="editingGroup ? '编辑分组' : '新建分组'"
-      style="width: 400px; background: #f2f1ed; border-radius: 8px"
+      style="width: 400px; border-radius: 10px"
       :mask-closable="false"
       @update:show="showForm = $event"
     >
@@ -187,7 +190,6 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
           <NInput
             v-model:value="formData.name"
             placeholder="分组名称"
-            style="border-radius: 8px"
           />
         </NFormItem>
 
@@ -197,17 +199,15 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
             :options="parentOptions"
             placeholder="选择父分组（可选）"
             clearable
-            style="border-radius: 8px"
           />
         </NFormItem>
       </NForm>
 
       <template #footer>
         <NSpace justify="end">
-          <NButton style="border-radius: 8px" @click="handleClose">取消</NButton>
+          <NButton @click="handleClose">取消</NButton>
           <NButton
             type="primary"
-            style="border-radius: 8px; background: #f54e00; border-color: #f54e00"
             @click="handleSubmit"
           >
             保存
@@ -225,6 +225,16 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
   gap: 12px;
 }
 
+.group-card--dark {
+  border: 1px solid #2A2A2E;
+  border-radius: 8px;
+}
+
+.group-card--light {
+  border: 1px solid #E8DFD2;
+  border-radius: 10px;
+}
+
 .tree-item {
   display: flex;
   align-items: center;
@@ -233,13 +243,29 @@ function renderSwitcherIcon({ expanded }: { expanded: boolean }) {
   padding: 4px 0;
 }
 
+.tree-label {
+  font-size: 14px;
+}
+
+.btn-edit, .btn-delete {
+  font-size: 13px;
+}
+
 .empty-state {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 300px;
-  background: #f2f1ed;
-  border: 1px solid rgba(38, 37, 30, 0.1);
-  border-radius: 8px;
+  border-radius: 10px;
+}
+
+.empty-state--dark {
+  background: #0E0E10;
+  border: 1px solid #1E1E22;
+}
+
+.empty-state--light {
+  background: #FFFCF7;
+  border: 1px solid #EDE6DA;
 }
 </style>

@@ -11,6 +11,7 @@ import {
   NInput,
   NText,
   NConfigProvider,
+  NDivider,
   NSwitch,
   NBadge
 } from 'naive-ui'
@@ -34,6 +35,7 @@ import { useThemeStore } from '../stores/useThemeStore'
 import ConnectionList from '../components/connection/ConnectionList.vue'
 import ConnectionForm from '../components/connection/ConnectionForm.vue'
 import SshConfigImport from '../components/connection/SshConfigImport.vue'
+import CsvImport from '../components/connection/CsvImport.vue'
 import TagManager from '../components/tag/TagManager.vue'
 import GroupManager from '../components/group/GroupManager.vue'
 import SystemSettings from '../components/settings/SystemSettings.vue'
@@ -41,7 +43,6 @@ import SystemSettings from '../components/settings/SystemSettings.vue'
 const connectionStore = useConnectionStore()
 const themeStore = useThemeStore()
 
-// 菜单选项
 const menuOptions: MenuOption[] = [
   {
     label: '连接管理',
@@ -87,33 +88,40 @@ const showForm = ref(false)
 const editingConnection = ref<string | null>(null)
 const showSshConfigImport = ref(false)
 const showConnectionForm = ref(false)
+const showCsvImport = ref(false)
+
+const isDark = computed(() => themeStore.isDark)
 
 onMounted(() => {
   connectionStore.fetchConnections()
 })
 
 function handleMenuSelect(key: string): void {
-  // 处理连接管理子菜单
   if (key === 'connections-add') {
     editingConnection.value = null
     showConnectionForm.value = true
     showSshConfigImport.value = false
+    showCsvImport.value = false
     return
   }
   if (key === 'connections-ssh-config') {
     showSshConfigImport.value = true
     showConnectionForm.value = false
+    showCsvImport.value = false
     activeMenu.value = 'connections'
     return
   }
   if (key === 'connections-csv') {
-    console.log('从 CSV 导入')
+    showCsvImport.value = true
+    showSshConfigImport.value = false
+    showConnectionForm.value = false
+    activeMenu.value = 'connections'
     return
   }
-  // 其他菜单项
   activeMenu.value = key
   showSshConfigImport.value = false
   showConnectionForm.value = false
+  showCsvImport.value = false
 }
 
 function handleSearch(value: string): void {
@@ -122,29 +130,25 @@ function handleSearch(value: string): void {
 </script>
 
 <template>
-  <NConfigProvider :theme="themeStore.theme">
-    <NLayout has-sider style="height: 100vh; background: #f2f1ed">
-      <!-- 侧边栏 - Cursor 风格 -->
+  <NConfigProvider :theme="themeStore.theme" :theme-overrides="themeStore.themeOverrides">
+    <NLayout has-sider class="app-layout" :class="{ 'app-layout--dark': isDark, 'app-layout--light': !isDark }">
       <NLayoutSider
         bordered
         collapse-mode="width"
         :collapsed-width="64"
-        :width="220"
+        :width="232"
         :native-scrollbar="false"
-        style="background: #f2f1ed; border-right: 1px solid rgba(38, 37, 30, 0.1)"
+        class="app-sider"
       >
-        <!-- Logo 区域 -->
         <div class="sider-header">
           <div class="logo">
-            <NText strong style="font-size: 18px; letter-spacing: -0.5px; color: #26251e">
-              SSH Hub
-            </NText>
+            <span class="logo-icon">⬡</span>
+            <NText strong class="logo-text">SSH Hub</NText>
           </div>
         </div>
 
-        <NDivider style="margin: 0; border-color: rgba(38, 37, 30, 0.1)" />
+        <NDivider class="sider-divider" />
 
-        <!-- 菜单 -->
         <NMenu
           :value="activeMenu"
           :collapsed-width="64"
@@ -153,24 +157,26 @@ function handleSearch(value: string): void {
           @update:value="handleMenuSelect"
         />
 
-        <!-- 底部主题切换 -->
         <div class="sider-footer">
-          <NDivider style="margin: 0; border-color: rgba(38, 37, 30, 0.1)" />
+          <NDivider class="sider-divider" />
           <div class="theme-toggle" @click="themeStore.toggleTheme()">
-            <NIcon :component="themeStore.themeMode === 'dark' ? SunnyOutline : MoonOutline" size="18" />
-            <NText depth="3" style="margin-left: 8px; font-size: 13px">
-              {{ themeStore.themeMode === 'dark' ? '浅色模式' : '深色模式' }}
+            <NIcon :component="isDark ? SunnyOutline : MoonOutline" size="18" />
+            <NText depth="3" class="theme-toggle-label">
+              {{ 
+                themeStore.themeMode === 'dark' ? '深色模式' : 
+                themeStore.themeMode === 'light' ? '浅色模式' :
+                themeStore.themeMode === 'black' ? '黑色主题' :
+                themeStore.themeMode === 'blue' ? '蓝色主题' : '黄色主题'
+              }}
             </NText>
           </div>
         </div>
       </NLayoutSider>
 
-      <!-- 主内容区 -->
-      <NLayoutContent style="background: #f2f1ed; padding: 0">
-        <!-- 顶部栏 -->
-        <div class="header">
+      <NLayoutContent class="app-content">
+        <div class="app-header">
           <div class="header-left">
-            <NText strong style="font-size: 16px; color: #26251e">
+            <NText strong class="header-title">
               {{ activeMenu === 'connections' ? '连接列表' :
                  activeMenu === 'tags' ? '标签管理' :
                  activeMenu === 'groups' ? '分组管理' :
@@ -178,13 +184,12 @@ function handleSearch(value: string): void {
             </NText>
           </div>
           <div class="header-right">
-            <!-- 搜索框 - 仅连接管理页面显示 -->
             <template v-if="activeMenu === 'connections'">
               <NInput
                 v-model:value="connectionStore.searchKeyword"
                 placeholder="搜索连接..."
                 clearable
-                style="width: 240px"
+                style="width: 260px"
                 @update:value="handleSearch"
               >
                 <template #prefix>
@@ -195,11 +200,10 @@ function handleSearch(value: string): void {
           </div>
         </div>
 
-        <!-- 内容区域 -->
-        <div class="content">
-          <!-- 连接管理页面 -->
+        <div class="page-content">
           <template v-if="activeMenu === 'connections'">
             <SshConfigImport v-if="showSshConfigImport" />
+            <CsvImport v-else-if="showCsvImport" />
             <ConnectionForm
               v-else-if="showConnectionForm"
               :connection-id="editingConnection"
@@ -213,13 +217,8 @@ function handleSearch(value: string): void {
             />
           </template>
 
-          <!-- 标签管理页面 -->
           <TagManager v-else-if="activeMenu === 'tags'" />
-
-          <!-- 分组管理页面 -->
           <GroupManager v-else-if="activeMenu === 'groups'" />
-
-          <!-- 系统设置页面 -->
           <SystemSettings v-else-if="activeMenu === 'settings'" />
         </div>
       </NLayoutContent>
@@ -228,8 +227,47 @@ function handleSearch(value: string): void {
 </template>
 
 <style scoped>
+.app-layout {
+  height: 100vh;
+}
+
+.app-layout--dark {
+  --bg-base: #0A0A0B;
+  --bg-sider: #0E0E10;
+  --bg-header: #0E0E10;
+  --bg-content: #0A0A0B;
+  --border-subtle: #1E1E22;
+  --border-default: #2A2A2E;
+  --text-brand: #5BA4F5;
+  --text-primary: #E8E8EC;
+  --text-secondary: #8C8C96;
+  --text-tertiary: #5A5A66;
+  --hover-bg: #1A1A1E;
+  --logo-glow: rgba(91, 164, 245, 0.15);
+}
+
+.app-layout--light {
+  --bg-base: #FAF6F0;
+  --bg-sider: #F5EFE6;
+  --bg-header: #F8F3EB;
+  --bg-content: #FAF6F0;
+  --border-subtle: #EDE6DA;
+  --border-default: #E0D6C6;
+  --text-brand: #C87A30;
+  --text-primary: #2E261E;
+  --text-secondary: #8A7E6E;
+  --text-tertiary: #A89E90;
+  --hover-bg: #FFF5EA;
+  --logo-glow: rgba(200, 122, 48, 0.12);
+}
+
+.app-sider {
+  background: var(--bg-sider) !important;
+  border-right: 1px solid var(--border-subtle) !important;
+}
+
 .sider-header {
-  height: 56px;
+  height: 60px;
   display: flex;
   align-items: center;
   padding: 0 20px;
@@ -238,6 +276,24 @@ function handleSearch(value: string): void {
 .logo {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.logo-icon {
+  font-size: 22px;
+  color: var(--text-brand);
+  filter: drop-shadow(0 0 8px var(--logo-glow));
+  line-height: 1;
+}
+
+.logo-text {
+  font-size: 17px;
+  letter-spacing: -0.5px;
+  color: var(--text-primary) !important;
+}
+
+.sider-divider {
+  margin: 0 !important;
 }
 
 .sider-footer {
@@ -254,25 +310,40 @@ function handleSearch(value: string): void {
   padding: 0 20px;
   cursor: pointer;
   transition: background 150ms ease;
+  color: var(--text-secondary);
 }
 
 .theme-toggle:hover {
-  background: rgba(38, 37, 30, 0.05);
+  background: var(--hover-bg);
 }
 
-.header {
-  height: 56px;
+.theme-toggle-label {
+  margin-left: 10px;
+  font-size: 13px;
+}
+
+.app-content {
+  background: var(--bg-content) !important;
+}
+
+.app-header {
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  border-bottom: 1px solid rgba(38, 37, 30, 0.1);
-  background: #f2f1ed;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-header);
 }
 
 .header-left {
   display: flex;
   align-items: center;
+}
+
+.header-title {
+  font-size: 16px !important;
+  color: var(--text-primary) !important;
 }
 
 .header-right {
@@ -281,7 +352,7 @@ function handleSearch(value: string): void {
   gap: 12px;
 }
 
-.content {
-  padding: 24px;
+.page-content {
+  padding: 24px 28px;
 }
 </style>

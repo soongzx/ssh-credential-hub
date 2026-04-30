@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { NCard, NSpace, NTag, NButton, NEmpty, NSpin, NText, NIcon, NPopconfirm, NBadge } from 'naive-ui'
 import { CreateOutline, TrashOutline, DesktopOutline, AddOutline } from '@vicons/ionicons5'
 import type { Connection, Tag } from '@shared/types'
 import { useTagStore } from '../../stores/useTagStore'
 import { useConnectionStore } from '../../stores/useConnectionStore'
+import { useThemeStore } from '../../stores/useThemeStore'
 
 interface Props {
   connections: Connection[]
@@ -23,20 +24,20 @@ const emit = defineEmits<{
 
 const tagStore = useTagStore()
 const connectionStore = useConnectionStore()
+const themeStore = useThemeStore()
 
-// 缓存每个连接的标签
+const isDark = computed(() => themeStore.isDark)
+
 const connectionTagMap = ref<Record<string, Tag[]>>({})
 
 onMounted(async () => {
   await tagStore.fetchTags()
-  // 预加载所有连接的标签
   for (const conn of props.connections) {
     const tags = await tagStore.fetchTagsByConnection(conn.id)
     connectionTagMap.value[conn.id] = tags
   }
 })
 
-// 监听连接变化，更新标签
 watch(
   () => props.connections,
   async (newConnections) => {
@@ -70,8 +71,7 @@ async function handleDelete(id: string): Promise<void> {
 
 <template>
   <NSpin :show="props.loading">
-    <!-- 空状态 -->
-    <div v-if="props.connections.length === 0" class="empty-state">
+    <div v-if="props.connections.length === 0" class="empty-state" :class="{ 'empty-state--dark': isDark, 'empty-state--light': !isDark }">
       <NEmpty description="暂无连接记录">
         <template #extra>
           <NText depth="3" style="font-size: 13px">
@@ -81,29 +81,26 @@ async function handleDelete(id: string): Promise<void> {
       </NEmpty>
     </div>
 
-    <!-- 连接列表 -->
     <div v-else class="connection-list">
       <NCard
         v-for="conn in props.connections"
         :key="conn.id"
         size="small"
         class="connection-card"
+        :class="{ 'connection-card--dark': isDark, 'connection-card--light': !isDark }"
         :body-style="{ padding: '16px' }"
       >
-        <!-- 卡片头部 -->
         <template #header>
           <div class="card-header">
             <div class="card-title">
-              <NIcon size="18" :component="DesktopOutline" style="color: #f54e00" />
-              <NText strong style="font-size: 15px; color: #26251e; margin-left: 10px">
-                {{ conn.name }}
-              </NText>
+              <NIcon size="18" :component="DesktopOutline" class="card-icon" />
+              <NText strong class="card-name">{{ conn.name }}</NText>
             </div>
             <NSpace>
               <NButton
                 text
                 size="small"
-                style="color: #f54e00; font-size: 13px"
+                class="btn-connect"
                 @click="emit('connect', conn.id)"
               >
                 连接
@@ -111,7 +108,7 @@ async function handleDelete(id: string): Promise<void> {
               <NButton
                 text
                 size="small"
-                style="color: rgba(38, 37, 30, 0.55); font-size: 13px"
+                class="btn-secondary"
                 @click="emit('edit', conn.id)"
               >
                 编辑
@@ -121,7 +118,7 @@ async function handleDelete(id: string): Promise<void> {
                   <NButton
                     text
                     size="small"
-                    style="color: #cf2d56; font-size: 13px"
+                    class="btn-danger"
                   >
                     删除
                   </NButton>
@@ -132,7 +129,6 @@ async function handleDelete(id: string): Promise<void> {
           </div>
         </template>
 
-        <!-- 卡片内容 -->
         <div class="card-content">
           <div class="info-row">
             <span class="label">主机</span>
@@ -140,7 +136,7 @@ async function handleDelete(id: string): Promise<void> {
           </div>
           <div class="info-row">
             <span class="label">用户</span>
-            <NText style="font-size: 13px; color: #26251e">{{ conn.username }}</NText>
+            <NText class="info-value">{{ conn.username }}</NText>
           </div>
           <div class="info-row">
             <span class="label">认证</span>
@@ -182,16 +178,24 @@ async function handleDelete(id: string): Promise<void> {
   gap: 12px;
 }
 
-.connection-card {
-  background: #f2f1ed;
-  border: 1px solid rgba(38, 37, 30, 0.1);
-  border-radius: 8px;
-  transition: box-shadow 200ms ease, border-color 200ms ease;
+.connection-card--dark {
+  border: 1px solid #2A2A2E;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 
-.connection-card:hover {
-  border-color: rgba(38, 37, 30, 0.2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+.connection-card--dark:hover {
+  border-color: #3A3A42;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.connection-card--light {
+  border: 1px solid #E8DFD2;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.connection-card--light:hover {
+  border-color: #D4C8B8;
+  box-shadow: 0 4px 16px rgba(58, 50, 40, 0.1);
 }
 
 .card-header {
@@ -203,6 +207,28 @@ async function handleDelete(id: string): Promise<void> {
 .card-title {
   display: flex;
   align-items: center;
+}
+
+.card-icon {
+  color: var(--text-brand, #5BA4F5);
+}
+
+.card-name {
+  font-size: 15px !important;
+  margin-left: 10px;
+}
+
+.btn-connect {
+  font-size: 13px;
+}
+
+.btn-secondary {
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.btn-danger {
+  font-size: 13px;
 }
 
 .card-content {
@@ -218,9 +244,13 @@ async function handleDelete(id: string): Promise<void> {
 }
 
 .label {
-  color: rgba(38, 37, 30, 0.55);
   font-size: 13px;
   min-width: 40px;
+  opacity: 0.5;
+}
+
+.info-value {
+  font-size: 13px;
 }
 
 .empty-state {
@@ -228,8 +258,16 @@ async function handleDelete(id: string): Promise<void> {
   align-items: center;
   justify-content: center;
   min-height: 300px;
-  background: #f2f1ed;
-  border: 1px solid rgba(38, 37, 30, 0.1);
-  border-radius: 8px;
+  border-radius: 10px;
+}
+
+.empty-state--dark {
+  background: #0E0E10;
+  border: 1px solid #1E1E22;
+}
+
+.empty-state--light {
+  background: #FFFCF7;
+  border: 1px solid #EDE6DA;
 }
 </style>

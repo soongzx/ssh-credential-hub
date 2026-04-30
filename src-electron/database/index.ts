@@ -8,6 +8,7 @@ import { app } from 'electron'
 import fs from 'fs'
 
 let db: Database.Database | null = null
+let customDbPath: string | null = null
 
 /**
  * 获取数据库文件路径
@@ -15,12 +16,31 @@ let db: Database.Database | null = null
  * 开发环境：项目根目录
  */
 function getDbPath(): string {
+  // 如果设置了自定义路径，则使用自定义路径
+  if (customDbPath) {
+    return customDbPath
+  }
+  
   const isDev = process.env.NODE_ENV === 'development'
   if (isDev) {
     return path.join(process.cwd(), 'data', 'app.db')
   }
   const userDataPath = app.getPath('userData')
   return path.join(userDataPath, 'app.db')
+}
+
+/**
+ * 设置自定义数据库路径
+ */
+export function setCustomDbPath(path: string): void {
+  customDbPath = path
+}
+
+/**
+ * 获取当前数据库路径
+ */
+export function getCurrentDbPath(): string {
+  return getDbPath()
 }
 
 /**

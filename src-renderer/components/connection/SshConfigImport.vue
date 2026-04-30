@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import {
   NCard,
   NSpace,
@@ -18,6 +18,7 @@ import {
 import type { DataTableColumns } from 'naive-ui'
 import { CloudUploadOutline, AddOutline, RefreshOutline } from '@vicons/ionicons5'
 import { useConnectionStore } from '../../stores/useConnectionStore'
+import { useThemeStore } from '../../stores/useThemeStore'
 
 interface ParsedHost {
   id: string
@@ -30,7 +31,9 @@ interface ParsedHost {
 }
 
 const connectionStore = useConnectionStore()
+const themeStore = useThemeStore()
 const message = useMessage()
+const isDark = computed(() => themeStore.isDark)
 
 const sshConfigText = ref('')
 const parsedHosts = ref<ParsedHost[]>([])
@@ -263,7 +266,7 @@ const columns: DataTableColumns<ParsedHost> = [
     <NCard
       title="从 SSH Config 导入"
       :bordered="false"
-      style="background: #f2f1ed; border-radius: 8px"
+      style="border-radius: 8px"
     >
       <template #header-extra>
         <NSpace>
@@ -280,7 +283,7 @@ const columns: DataTableColumns<ParsedHost> = [
         </NSpace>
       </template>
 
-      <div class="import-section">
+      <div class="import-section" :class="{ 'import-section--dark': isDark, 'import-section--light': !isDark }">
         <NText depth="3" style="font-size: 13px; margin-bottom: 12px; display: block">
           粘贴 SSH Config 内容，或上传本地配置文件
         </NText>
@@ -300,7 +303,6 @@ const columns: DataTableColumns<ParsedHost> = [
         <NSpace style="margin-bottom: 16px">
           <NButton
             type="primary"
-            style="background: #f54e00; border-color: #f54e00"
             @click="handleParse"
           >
             <template #icon>
@@ -330,7 +332,7 @@ const columns: DataTableColumns<ParsedHost> = [
       <template v-if="parsedHosts.length > 0">
         <NDivider style="margin: 16px 0" />
 
-        <div class="parsed-section">
+        <div class="parsed-section" :class="{ 'parsed-section--dark': isDark, 'parsed-section--light': !isDark }">
           <div class="parsed-header">
             <NText strong style="font-size: 14px">
               解析结果 ({{ parsedHosts.length }} 个 Host)
@@ -357,7 +359,6 @@ const columns: DataTableColumns<ParsedHost> = [
           <NSpace style="margin-top: 16px">
             <NButton
               type="primary"
-              style="background: #f54e00; border-color: #f54e00"
               @click="handleImport"
             >
               <template #icon>
@@ -400,7 +401,6 @@ const columns: DataTableColumns<ParsedHost> = [
           <NButton @click="showPreview = false">关闭</NButton>
           <NButton
             type="primary"
-            style="background: #f54e00; border-color: #f54e00"
             @click="navigator.clipboard.writeText(previewConfig); message.success('已复制')"
           >
             复制到剪贴板
@@ -413,17 +413,33 @@ const columns: DataTableColumns<ParsedHost> = [
 
 <style scoped>
 .import-section {
-  background: rgba(38, 37, 30, 0.02);
   padding: 16px;
   border-radius: 8px;
-  border: 1px solid rgba(38, 37, 30, 0.1);
+}
+
+.import-section--dark {
+  background: #0E0E10;
+  border: 1px solid #1E1E22;
+}
+
+.import-section--light {
+  background: #FFFCF7;
+  border: 1px solid #EDE6DA;
 }
 
 .parsed-section {
-  background: rgba(38, 37, 30, 0.02);
   padding: 16px;
   border-radius: 8px;
-  border: 1px solid rgba(38, 37, 30, 0.1);
+}
+
+.parsed-section--dark {
+  background: #0E0E10;
+  border: 1px solid #1E1E22;
+}
+
+.parsed-section--light {
+  background: #FFFCF7;
+  border: 1px solid #EDE6DA;
 }
 
 .parsed-header {
